@@ -149,7 +149,7 @@ class Fight:
         self.party_one = party_one
         self.party_two = party_two
 
-    #        self.inventory = Inventory(client, channel, )
+        self.inventory = Inventory(client, channel, party_one)
 
     def get_embed(self):
         embed = discord.Embed(title='It\'s showtime!')
@@ -170,6 +170,10 @@ class Fight:
 
         return embed
 
+    async def open_inventory(self, inter: Interaction):
+        await inter.edit_origin(embed=self.get_embed())
+        await self.inventory.start()
+
     async def start(self):
         await self.channel.send(embed=self.get_embed(),
                                 components=[[
@@ -179,7 +183,10 @@ class Fight:
                                         remove_callback
                                     ),
                                     Button(style=ButtonStyle.green, label='Shops', disabled=True),
-                                    Button(style=ButtonStyle.green, label='Inventory', disabled=True),
+                                    self.client.add_callback(
+                                        Button(style=ButtonStyle.green, label='Inventory'),
+                                        self.open_inventory
+                                    )
                                 ]])
 
         await self.client.bot.wait_for('button_click', check=lambda inter: inter.custom_id == 'sub_continue')
@@ -205,6 +212,21 @@ class Inventory:
         return discord.Embed(title='Whose inventory do you want to view?',
                              description=desc)
 
+    def get_weapon_embed(self):
+        player = self.players[self.player_select_index]
+        return discord.Embed(title=f'{player.name}\'s inventory',
+                             description='\n'.join(item.name for item in player.weapons))
+
+    def get_armor_embed(self):
+        player = self.players[self.player_select_index]
+        return discord.Embed(title=f'{player.name}\'s inventory',
+                             description='\n'.join(item.name for item in player.armors))
+
+    def get_consumables_embed(self):
+        player = self.players[self.player_select_index]
+        return discord.Embed(title=f'{player.name}\'s inventory',
+                             description='\n'.join(item.name for item in player.consumables))
+
     async def button_up_callback(self, inter: Interaction):
         self.player_select_index = (self.player_select_index + 1) % len(self.players)
         await self.button_callback(inter)
@@ -215,6 +237,22 @@ class Inventory:
 
     async def button_callback(self, inter: Interaction):
         await inter.edit_origin(embed=self.get_select_embed())
+
+    async def view_weapon(self, inter: Interaction):
+        await inter.edit_origin(embed=self.get_weapon_embed(),
+                                components=self.get_inventory_components())
+
+    async def view_armor(self, inter: Interaction):
+        await inter.edit_origin(embed=self.get_armor_embed(),
+                                components=self.get_inventory_components())
+
+    async def view_consumable(self, inter: Interaction):
+        await inter.edit_origin(embed=self.get_consumables_embed(),
+                                components=self.get_inventory_components())
+
+    async def view_selection(self, inter: Interaction):
+        await inter.edit_origin(embed=self.get_select_embed(),
+                                components=self.get_select_components())
 
     def get_select_components(self):
         return [
@@ -229,10 +267,37 @@ class Inventory:
                 ),
                 self.client.add_callback(
                     Button(label='View'),
-                    None
+                    self.view_weapon,
+                ),
+                self.client.add_callback(
+                    Button(style=ButtonStyle.red, label='Back'),
+                    remove_callback,
+                )
+            ]
+        ]
+
+    def get_inventory_components(self):
+        return [
+            [
+                self.client.add_callback(
+                    Button(style=ButtonStyle.green, label='Weapons'),
+                    self.view_weapon,
+                ),
+                self.client.add_callback(
+                    Button(style=ButtonStyle.green, label='Armor'),
+                    self.view_armor,
+                ),
+                self.client.add_callback(
+                    Button(style=ButtonStyle.green, label='Consumables'),
+                    self.view_consumable,
+                ),
+                self.client.add_callback(
+                    Button(style=ButtonStyle.blue, label='Back'),
+                    self.view_selection,
                 )
             ]
         ]
 
     async def start(self):
-        await self.channel.send(embed=self.get_select_embed(), )
+        await self.channel.send(embed=self.get_select_embed(),
+                                components=self.get_select_components())
