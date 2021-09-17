@@ -33,6 +33,18 @@ class Armor(Item):
         super().__init__(armor_name, flavor_text)
         self.piece_type = piece_type
 
+    def __eq__(self, other: Union[str, Consumable]):
+        if isinstance(other, Weapon):
+            return other.name == self.name
+        return self.name == other
+
+    def on_use(self): ...
+
 
 class Consumable(Item):
-    ...
+    def __eq__(self, other: Union[str, Consumable]):
+        if isinstance(other, Weapon):
+            return other.name == self.name
+        return self.name == other
+
+    def on_use(self): ...
