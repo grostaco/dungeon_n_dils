@@ -240,15 +240,15 @@ class Inventory:
 
     async def view_weapon(self, inter: Interaction):
         await inter.edit_origin(embed=self.get_weapon_embed(),
-                                components=self.get_inventory_components())
+                                components=self.get_inventory_components(weapon_style=ButtonStyle.gray))
 
     async def view_armor(self, inter: Interaction):
         await inter.edit_origin(embed=self.get_armor_embed(),
-                                components=self.get_inventory_components())
+                                components=self.get_inventory_components(armor_style=ButtonStyle.gray))
 
     async def view_consumable(self, inter: Interaction):
         await inter.edit_origin(embed=self.get_consumables_embed(),
-                                components=self.get_inventory_components())
+                                components=self.get_inventory_components(consumable_style=ButtonStyle.gray))
 
     async def view_selection(self, inter: Interaction):
         await inter.edit_origin(embed=self.get_select_embed(),
@@ -276,19 +276,20 @@ class Inventory:
             ]
         ]
 
-    def get_inventory_components(self):
+    def get_inventory_components(self, *, weapon_style=ButtonStyle.green, armor_style=ButtonStyle.green,
+                                 consumable_style=ButtonStyle.green):
         return [
             [
                 self.client.add_callback(
-                    Button(style=ButtonStyle.green, label='Weapons'),
+                    Button(style=weapon_style, label='Weapons'),
                     self.view_weapon,
                 ),
                 self.client.add_callback(
-                    Button(style=ButtonStyle.green, label='Armor'),
+                    Button(style=armor_style, label='Armor'),
                     self.view_armor,
                 ),
                 self.client.add_callback(
-                    Button(style=ButtonStyle.green, label='Consumables'),
+                    Button(style=consumable_style, label='Consumables'),
                     self.view_consumable,
                 ),
                 self.client.add_callback(
