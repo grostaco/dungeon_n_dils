@@ -31,7 +31,6 @@ class Character(metaclass=ABCMeta):
 class Player(Character):
     def __init__(self, name, weapons, consumables, armors, stats):
         super().__init__(name, weapons, armors, consumables, stats)
-        self.inventory: List[Item] = []
 
     def equip_weapon(self, weapon_name: str) -> Optional[Weapon]:
         weapon = tuple(filter(lambda w: w.name == weapon_name, self.weapons))
