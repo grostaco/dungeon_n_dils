@@ -11,8 +11,10 @@ class DungeonBot(ComponentsBot):
 
     async def on_ready(self):
         beginning = rpg.Dialogue()
-        najim = rpg.Player('Najim', [], [], [], rpg.Stats(32, 16, 16, 0))
-        roar = rpg.Player('RoaR', [], [], [], rpg.Stats(32, 16, 16, 5))
+        najim = rpg.Player('Najim', [rpg.Weapon('MILF hunter sword', '')], [rpg.Consumable('Dildo', '')],
+                                    [rpg.Armor('Fortnite shoes', '', 1)], rpg.Stats(32, 16, 16, 0))
+        roar = rpg.Player('RoaR', [rpg.Weapon('A fish', '')], [rpg.Consumable('Bomb', '')],
+                                  [rpg.Armor('Yeezy', '', 1)], rpg.Stats(32, 16, 16, 5))
         chicken = rpg.Character('Chicken God', [], [], [], rpg.Stats(16, 1, 1, 64))
         chn: discord.TextChannel = self.get_channel(887345509990285315)
 
