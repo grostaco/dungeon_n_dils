@@ -1,4 +1,4 @@
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Any
 from abc import ABCMeta, abstractmethod
 import rpg
 import discord
@@ -20,7 +20,7 @@ class Selectable(metaclass=ABCMeta):
     def __init__(self,
                  client: DiscordComponents,
                  channel: Messageable,
-                 options: List[str],
+                 options: List[Any],
                  select_title: str,
                  up_button: Optional[Button] = Button(style=ButtonStyle.blue, emoji='🔼'),
                  down_button: Optional[Button] = Button(style=ButtonStyle.blue, emoji='🔽'),
@@ -261,33 +261,53 @@ class Inventory(Selectable):
                                 components=Selectable.get_components(self))
 
     async def equip_callback(self, inter: Interaction):
+        if self.last_chosen == 'consumables':
+            await inter.respond(type=7)
+            return
+
         class InventoryEquip(Selectable):
             def __init__(self, inv: Inventory):
                 super().__init__(inv.client, inv.channel,
-                                 [item.name for item in getattr(inv.players[inv.index], inv.last_chosen)],
+                                 getattr(inv.players[inv.index], inv.last_chosen),
                                  select_title=f'{inv.players[inv.index].name}\'s {inv.last_chosen}',
-                                 select_button=Button(label='Equip', custom_id='equip'),
+                                 select_button=Button(label='Equip', custom_id='equip',
+                                                      style=ButtonStyle.blue),
                                  extra_components=[
-                                     inv.client.add_callback(Button(label='Unequip', custom_id='unequip'),
+                                     inv.client.add_callback(Button(label='Unequip', custom_id='unequip',
+                                                                    style=ButtonStyle.blue),
                                                              self.select_callback),
                                      inv.client.add_callback(Button(label='Back', style=ButtonStyle.red),
                                                              inv.select_callback)])
                 self.last_option = 0
                 self.inv = inv
+                self.player = self.inv.players[self.inv.index]
+                self.target_inv = getattr(inv.players[inv.index], inv.last_chosen)
+
+            def get_embed(self):
+                desc = ''
+                for i, option in enumerate(self.options):
+                    if i == self.index:
+                        desc += '▶️   '
+                    desc += f'{option.name}\n'
+
+                return discord.Embed(title=self.select_title,
+                                     description=desc)
 
             async def select_callback(self, _inter: Interaction):
                 if _inter.custom_id == 'equip':
-                    if not self.options[self.index].endswith('*(Equipped)*'):
-                        if self.inv.last_chosen == 'weapons':
-                            self.inv.players[self.inv.index].equip_weapon(self.options[self.index])
-                        elif self.inv.last_chosen == 'armors':
-                            self.inv.players[self.inv.index].equip_armor(self.options[self.index])
-                        self.options[self.index] += ' *(Equipped)*'
+                    if self.inv.last_chosen == 'weapons':
+                        self.player.equip_weapon(self.options[self.index])
+                    else:
+                        self.player.equip_armor(self.options[self.index])
                 else:
-                    if self.options[self.index].endswith('*(Equipped)*'):
-                        if self.inv.last_chosen == 'weapons':
-                            self.inv.players[self.inv.index].unequip_weapon()
-                        self.options[self.index] = self.options[self.index][:-len(' *(Equipped)*')]
+                    print(self.inv.last_chosen)
+                    print('Made it!')
+                    if self.inv.last_chosen == 'weapons':
+                        self.player.unequip_weapon()
+                    else:
+                        print('SO here?')
+                        self.player.unequip_armor(self.options[self.index])
+
                 await _inter.edit_origin(embed=self.get_embed(), components=self.get_components())
 
         await InventoryEquip(self).start(inter)
