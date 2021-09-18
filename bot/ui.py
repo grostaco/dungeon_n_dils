@@ -186,7 +186,9 @@ class Fight:
                 if character.name == '\u200b':
                     return '\u200b'
                 else:
-                    return f'hp: {character.stats.hp}\natk: {character.stats.atk}\n' \
+
+                    return f'hp: {character.stats.hp} ()\n' \
+                           f'atk: {character.stats.atk}\n' \
                            f'def: {character.stats.defense}\nint: {character.stats.int}'
 
             embed.add_field(name=p1.name, value=stat_str(p1), inline=True)
