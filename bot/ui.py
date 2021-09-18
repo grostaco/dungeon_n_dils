@@ -64,9 +64,13 @@ class Selectable(metaclass=ABCMeta):
         return discord.Embed(title=self.select_title,
                              description=desc)
 
-    async def start(self):
-        await self.channel.send(embed=self.get_embed(),
-                                components=self.get_components())
+    async def start(self, inter: Optional[Interaction] = None):
+        if inter:
+            await inter.edit_origin(embed=self.get_embed(),
+                                    components=self.get_components())
+        else:
+            await self.channel.send(embed=self.get_embed(),
+                                    components=self.get_components())
 
     async def button_up_callback(self, inter: Interaction):
         self.index = (self.index + 1) % len(self.options)
@@ -236,11 +240,13 @@ class Inventory(Selectable):
         self.client = client
         self.channel = channel
         self.players = players
+        self.last_chosen = 'weapons'
 
     async def select_callback(self, inter: Interaction):
-        if inter.custom_id == 'view':
+        if inter.custom_id not in {'weapons', 'armors', 'consumables'}:
             inter.custom_id = 'weapons'
         prop = inter.custom_id
+        self.last_chosen = inter.custom_id
         player = self.players[self.index]
         embed = discord.Embed(title=f'{player.name}\'s inventory',
                               description='\n\n'.join(
@@ -253,6 +259,38 @@ class Inventory(Selectable):
     async def view_selection(self, inter: Interaction):
         await inter.edit_origin(embed=Selectable.get_embed(self),
                                 components=Selectable.get_components(self))
+
+    async def equip_callback(self, inter: Interaction):
+        class InventoryEquip(Selectable):
+            def __init__(self, inv: Inventory):
+                super().__init__(inv.client, inv.channel,
+                                 [item.name for item in getattr(inv.players[inv.index], inv.last_chosen)],
+                                 select_title=f'{inv.players[inv.index].name}\'s {inv.last_chosen}',
+                                 select_button=Button(label='Equip', custom_id='equip'),
+                                 extra_components=[
+                                     inv.client.add_callback(Button(label='Unequip', custom_id='unequip'),
+                                                             self.select_callback),
+                                     inv.client.add_callback(Button(label='Back', style=ButtonStyle.red),
+                                                             inv.select_callback)])
+                self.last_option = 0
+                self.inv = inv
+
+            async def select_callback(self, _inter: Interaction):
+                if _inter.custom_id == 'equip':
+                    if not self.options[self.index].endswith('*(Equipped)*'):
+                        if self.inv.last_chosen == 'weapons':
+                            self.inv.players[self.inv.index].equip_weapon(self.options[self.index])
+                        elif self.inv.last_chosen == 'armors':
+                            self.inv.players[self.inv.index].equip_armor(self.options[self.index])
+                        self.options[self.index] += ' *(Equipped)*'
+                else:
+                    if self.options[self.index].endswith('*(Equipped)*'):
+                        if self.inv.last_chosen == 'weapons':
+                            self.inv.players[self.inv.index].unequip_weapon()
+                        self.options[self.index] = self.options[self.index][:-len(' *(Equipped)*')]
+                await _inter.edit_origin(embed=self.get_embed(), components=self.get_components())
+
+        await InventoryEquip(self).start(inter)
 
     def get_inventory_components(self, *, style_array: Sequence[ButtonStyle] = (ButtonStyle.green,) * 3):
         return [
@@ -270,7 +308,11 @@ class Inventory(Selectable):
                     self.select_callback,
                 ),
                 self.client.add_callback(
-                    Button(style=ButtonStyle.blue, label='Back'),
+                    Button(style=ButtonStyle.blue, label='Equip', custom_id='equip'),
+                    self.equip_callback,
+                ),
+                self.client.add_callback(
+                    Button(style=ButtonStyle.red, label='Back'),
                     self.view_selection,
                 )
             ]
