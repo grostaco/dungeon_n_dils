@@ -15,6 +15,7 @@ from discord_components import (
 )
 
 
+# noinspection PyArgumentList
 class Selectable(metaclass=ABCMeta):
     def __init__(self,
                  client: DiscordComponents,
@@ -121,6 +122,7 @@ class Dialogue:
             ]
         ]
 
+    # noinspection PyArgumentList
     async def start(self):
         if len(self.dialogue) == 1:
             self.no_skip = False
@@ -204,6 +206,7 @@ class Fight:
         await self.inventory.start()
 
     async def start(self):
+        # noinspection PyArgumentList
         await self.channel.send(embed=self.get_embed(),
                                 components=[[
                                     self.client.add_callback(

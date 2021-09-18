@@ -1,4 +1,4 @@
-from .script import Script, Dialogue, Choice
+from .script import Script
 
 
 # Script
@@ -12,4 +12,4 @@ class World:
         self.script = iter(script)
 
     def advance(self):
-        act = next(self.script)
+        ...

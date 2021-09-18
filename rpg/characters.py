@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 from typing import Optional, List, Iterable
-from .items import Weapon, Armor, Consumable
+
 from .common import Stats
+from .items import Weapon, Armor, Consumable
 
 
 class Character(metaclass=ABCMeta):
@@ -47,6 +48,3 @@ class Player(Character):
 
     def unequip_armor(self, idx: int) -> None:
         self.equipped_armors[idx] = None
-
-
-

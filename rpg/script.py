@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from .characters import Character, Player
+from typing import List, Tuple, Union, Optional
 
-from typing import List, Tuple, Callable, Union, Optional
+from .characters import Character, Player
 
 
 class Script:
