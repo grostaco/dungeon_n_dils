@@ -1,18 +1,9 @@
+from __future__ import annotations
+
 from abc import ABCMeta, abstractmethod
 from typing import Optional, List, Iterable
-from .items import Item, Weapon, Armor, Consumable
-
-
-class Stats:
-    def __init__(self, hp: float,
-                 defense: float,
-                 atk: float,
-                 intelligence: float,
-                 ):
-        self.hp = hp
-        self.defense = defense
-        self.atk = atk
-        self.int = intelligence
+from .items import Weapon, Armor, Consumable
+from .common import Stats
 
 
 class Character(metaclass=ABCMeta):
