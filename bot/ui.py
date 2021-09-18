@@ -9,8 +9,78 @@ from discord_components import (
     DiscordComponents,
     Button,
     ButtonStyle,
-    Interaction
+    Interaction,
+    Component,
 )
+
+
+class Selectable(metaclass=ABCMeta):
+    def __init__(self,
+                 client: DiscordComponents,
+                 channel: Messageable,
+                 options: List[str],
+                 select_title: str,
+                 up_button: Optional[Button] = Button(style=ButtonStyle.blue, emoji='🔼'),
+                 down_button: Optional[Button] = Button(style=ButtonStyle.blue, emoji='🔽'),
+                 select_button: Optional[Button] = Button(style=ButtonStyle.blue, label='Select'),
+                 extra_components: List[Component] = None):
+        self.client = client
+        self.channel = channel
+        self.options = options
+        self.select_title = select_title
+        self.up_button = up_button
+        self.down_button = down_button
+        self.select_button = select_button
+        self.extra_components = extra_components or []
+        self.index = 0
+
+    def get_components(self):
+        return [
+            [
+                self.client.add_callback(
+                    self.up_button,
+                    self.button_up_callback,
+                ),
+                self.client.add_callback(
+                    self.down_button,
+                    self.button_down_callback,
+                ),
+                self.client.add_callback(
+                    self.select_button,
+                    self.select_callback,
+                ),
+            ] + self.extra_components
+        ]
+
+    def get_embed(self):
+        desc = ''
+        for i, option in enumerate(self.options):
+            if i == self.index:
+                desc += '▶️   '
+            desc += f'{option}\n'
+
+        return discord.Embed(title=self.select_title,
+                             description=desc)
+
+    async def start(self):
+        await self.channel.send(embed=self.get_embed(),
+                                components=self.get_components())
+
+    async def button_up_callback(self, inter: Interaction):
+        self.index = (self.index + 1) % len(self.options)
+        await self.button_callback(inter)
+
+    async def button_down_callback(self, inter: Interaction):
+        self.index = (self.index - 1) % len(self.options)
+        await self.button_callback(inter)
+
+    @abstractmethod
+    async def select_callback(self, inter: Interaction):
+        ...
+
+    async def button_callback(self, inter: Interaction):
+        await inter.edit_origin(embed=self.get_embed(),
+                                components=self.get_components())
 
 
 class Dialogue:
@@ -78,61 +148,17 @@ class Dialogue:
         )
 
 
-class Choice:
+class Choice(Selectable):
     def __init__(self,
                  client: DiscordComponents,
                  channel: Messageable,
-                 choice: rpg.Choice):
-        self.client = client
-        self.channel = channel
+                 choice: rpg.Choice,
+                 select_title: str = 'You are presented with a choice!'):
+        super().__init__(client, channel, [dialogue[0] for dialogue in choice], select_title,
+                         select_button=Button(label='Continue'))
         self.choice = choice
-        self.index = 0
 
-    def get_components(self):
-        return [
-            [
-                self.client.add_callback(
-                    Button(style=ButtonStyle.blue, emoji='🔼'),
-                    self.button_up_callback,
-                ),
-                self.client.add_callback(
-                    Button(style=ButtonStyle.blue, emoji='🔽'),
-                    self.button_down_callback,
-                ),
-                self.client.add_callback(
-                    Button(label='Continue'),
-                    self.continue_callback,
-                )
-            ]
-        ]
-
-    async def button_up_callback(self, inter: Interaction):
-        self.index = (self.index - 1) % len(self.choice)
-        await self.button_callback(inter)
-
-    async def button_down_callback(self, inter: Interaction):
-        self.index = (self.index + 1) % len(self.choice)
-        await self.button_callback(inter)
-
-    def get_description(self):
-        desc = ''
-        for i, choice in enumerate(self.choice):
-            if i == self.index:
-                desc += '▶️   '
-            desc += f'{choice[0]}\n'
-        return desc
-
-    async def start(self, title='You are presented with a choice!'):
-        await self.channel.send(embed=discord.Embed(title=title,
-                                                    description=self.get_description()),
-                                components=self.get_components())
-
-    async def button_callback(self, inter: Interaction):
-        await inter.edit_origin(embed=discord.Embed(title='You are presented with a choice!',
-                                                    description=self.get_description()),
-                                components=self.get_components())
-
-    async def continue_callback(self, inter: Interaction):
+    async def select_callback(self, inter: Interaction):
         await remove_callback(inter)
         await Dialogue(client=self.client, channel=self.channel,
                        dialogue=self.choice[self.index][1]).start()
@@ -142,7 +168,7 @@ class Fight:
     def __init__(self,
                  client: DiscordComponents,
                  channel: Messageable,
-                 party_one: List[rpg.Character],
+                 party_one: List[rpg.Player],
                  party_two: List[rpg.Character]):
         self.client = client
         self.channel = channel
@@ -192,105 +218,50 @@ class Fight:
         await self.client.bot.wait_for('button_click', check=lambda inter: inter.custom_id == 'sub_continue')
 
 
-class Inventory:
+class Inventory(Selectable):
     def __init__(self,
                  client: DiscordComponents,
                  channel: Messageable,
                  players: List[rpg.Player]):
+        super().__init__(client, channel, [player.name for player in players], 'Whose inventory do you want to view?',
+                         select_button=Button(label='View', custom_id='view'),
+                         extra_components=[client.add_callback(Button(style=ButtonStyle.red, label='Back'),
+                                                               remove_callback)])
         self.client = client
         self.channel = channel
         self.players = players
-        self.player_select_index = 0
 
-    def get_select_embed(self):
-        desc = ''
-        for i, player in enumerate(self.players):
-            if i == self.player_select_index:
-                desc += '▶️   '
-            desc += f'{player.name}\n'
-
-        return discord.Embed(title='Whose inventory do you want to view?',
-                             description=desc)
-
-    def get_weapon_embed(self):
-        player = self.players[self.player_select_index]
-        return discord.Embed(title=f'{player.name}\'s inventory',
-                             description='\n'.join(item.name for item in player.weapons))
-
-    def get_armor_embed(self):
-        player = self.players[self.player_select_index]
-        return discord.Embed(title=f'{player.name}\'s inventory',
-                             description='\n'.join(item.name for item in player.armors))
-
-    def get_consumables_embed(self):
-        player = self.players[self.player_select_index]
-        return discord.Embed(title=f'{player.name}\'s inventory',
-                             description='\n'.join(item.name for item in player.consumables))
-
-    async def button_up_callback(self, inter: Interaction):
-        self.player_select_index = (self.player_select_index + 1) % len(self.players)
-        await self.button_callback(inter)
-
-    async def button_down_callback(self, inter: Interaction):
-        self.player_select_index = (self.player_select_index - 1) % len(self.players)
-        await self.button_callback(inter)
-
-    async def button_callback(self, inter: Interaction):
-        await inter.edit_origin(embed=self.get_select_embed())
-
-    async def view_weapon(self, inter: Interaction):
-        await inter.edit_origin(embed=self.get_weapon_embed(),
-                                components=self.get_inventory_components(weapon_style=ButtonStyle.gray))
-
-    async def view_armor(self, inter: Interaction):
-        await inter.edit_origin(embed=self.get_armor_embed(),
-                                components=self.get_inventory_components(armor_style=ButtonStyle.gray))
-
-    async def view_consumable(self, inter: Interaction):
-        await inter.edit_origin(embed=self.get_consumables_embed(),
-                                components=self.get_inventory_components(consumable_style=ButtonStyle.gray))
+    async def select_callback(self, inter: Interaction):
+        if inter.custom_id == 'view':
+            inter.custom_id = 'weapons'
+        prop = inter.custom_id
+        player = self.players[self.index]
+        embed = discord.Embed(title=f'{player.name}\'s inventory',
+                              description='\n\n'.join(
+                                  f'{item.name}\n*{item.flavor_text}*' for item in getattr(player, prop)))
+        styles = [ButtonStyle.green] * 3
+        styles[{'weapons': 0, 'armors': 1, 'consumables': 2}[inter.custom_id]] = ButtonStyle.gray
+        await inter.edit_origin(embed=embed,
+                                components=self.get_inventory_components(style_array=styles))
 
     async def view_selection(self, inter: Interaction):
-        await inter.edit_origin(embed=self.get_select_embed(),
-                                components=self.get_select_components())
+        await inter.edit_origin(embed=Selectable.get_embed(self),
+                                components=Selectable.get_components(self))
 
-    def get_select_components(self):
+    def get_inventory_components(self, *, style_array: Sequence[ButtonStyle] = (ButtonStyle.green,) * 3):
         return [
             [
                 self.client.add_callback(
-                    Button(style=ButtonStyle.blue, emoji='🔼'),
-                    self.button_up_callback,
+                    Button(style=style_array[0], label='Weapons', custom_id='weapons'),
+                    self.select_callback,
                 ),
                 self.client.add_callback(
-                    Button(style=ButtonStyle.blue, emoji='🔽'),
-                    self.button_down_callback,
+                    Button(style=style_array[1], label='Armor', custom_id='armors'),
+                    self.select_callback,
                 ),
                 self.client.add_callback(
-                    Button(label='View'),
-                    self.view_weapon,
-                ),
-                self.client.add_callback(
-                    Button(style=ButtonStyle.red, label='Back'),
-                    remove_callback,
-                )
-            ]
-        ]
-
-    def get_inventory_components(self, *, weapon_style=ButtonStyle.green, armor_style=ButtonStyle.green,
-                                 consumable_style=ButtonStyle.green):
-        return [
-            [
-                self.client.add_callback(
-                    Button(style=weapon_style, label='Weapons'),
-                    self.view_weapon,
-                ),
-                self.client.add_callback(
-                    Button(style=armor_style, label='Armor'),
-                    self.view_armor,
-                ),
-                self.client.add_callback(
-                    Button(style=consumable_style, label='Consumables'),
-                    self.view_consumable,
+                    Button(style=style_array[2], label='Consumables', custom_id='consumables'),
+                    self.select_callback,
                 ),
                 self.client.add_callback(
                     Button(style=ButtonStyle.blue, label='Back'),
@@ -298,7 +269,3 @@ class Inventory:
                 )
             ]
         ]
-
-    async def start(self):
-        await self.channel.send(embed=self.get_select_embed(),
-                                components=self.get_select_components())
