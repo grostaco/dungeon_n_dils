@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 from typing import Union
+from .common import Stats
 
 
 class Item(metaclass=ABCMeta):
@@ -17,8 +18,9 @@ class Item(metaclass=ABCMeta):
 
 
 class Weapon(Item):
-    def __init__(self, weapon_name: str, flavor_text: str):
+    def __init__(self, weapon_name: str, flavor_text: str, stats: Stats):
         super().__init__(weapon_name, flavor_text)
+        self.stats = stats
 
     def on_use(self): ...
 
@@ -29,9 +31,10 @@ class Weapon(Item):
 
 
 class Armor(Item):
-    def __init__(self, armor_name: str, flavor_text: str, piece_type: int):
+    def __init__(self, armor_name: str, flavor_text: str, piece_type: int,  stats: Stats):
         super().__init__(armor_name, flavor_text)
         self.piece_type = piece_type
+        self.stats = stats
 
     def __eq__(self, other: Union[str, Consumable]):
         if isinstance(other, Weapon):
