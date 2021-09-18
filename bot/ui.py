@@ -1,4 +1,5 @@
-from typing import List
+from typing import List, Optional, Sequence
+from abc import ABCMeta, abstractmethod
 import rpg
 import discord
 from .util import remove_callback
