@@ -1,4 +1,4 @@
-from typing import List, Optional, Sequence, Any
+from typing import List, Optional, Sequence, Any, Callable
 from abc import ABCMeta, abstractmethod
 import rpg
 import discord
@@ -181,8 +181,9 @@ class Fight:
         self.channel = channel
         self.party_one = party_one
         self.party_two = party_two
+        self.original_message = None
 
-        self.inventory = Inventory(client, channel, party_one)
+        self.inventory = Inventory(client, channel, party_one, self.update)
 
     def get_embed(self):
         embed = discord.Embed(title='It\'s showtime!')
@@ -193,10 +194,11 @@ class Fight:
                 if character.name == '\u200b':
                     return '\u200b'
                 else:
-
-                    return f'hp: {character.stats.hp} ()\n' \
-                           f'atk: {character.stats.atk}\n' \
-                           f'def: {character.stats.defense}\nint: {character.stats.int}'
+                    stats = character.get_item_stats()
+                    return f'hp: {character.stats.hp} (+{stats.hp})\n' \
+                           f'atk: {character.stats.atk} (+{stats.atk})\n' \
+                           f'def: {character.stats.defense} (+{stats.defense})\n' \
+                           f'int: {character.stats.int} (+{stats.int})'
 
             embed.add_field(name=p1.name, value=stat_str(p1), inline=True)
             embed.add_field(name=fill_char, value='\u200b')
@@ -209,21 +211,25 @@ class Fight:
         await inter.edit_origin(embed=self.get_embed())
         await self.inventory.start()
 
+    async def update(self):
+        await self.original_message.edit(embed=self.get_embed())
+
     async def start(self):
         # noinspection PyArgumentList
-        await self.channel.send(embed=self.get_embed(),
-                                components=[[
-                                    self.client.add_callback(
-                                        Button(style=ButtonStyle.blue, label='Proceed',
-                                               custom_id='sub_continue'),
-                                        remove_callback
-                                    ),
-                                    Button(style=ButtonStyle.green, label='Shops', disabled=True),
-                                    self.client.add_callback(
-                                        Button(style=ButtonStyle.green, label='Inventory'),
-                                        self.open_inventory
-                                    )
-                                ]])
+        self.original_message = await self.channel.send(embed=self.get_embed(),
+                                                        components=[[
+                                                            self.client.add_callback(
+                                                                Button(style=ButtonStyle.blue, label='Proceed',
+                                                                       custom_id='sub_continue'),
+                                                                remove_callback
+                                                            ),
+                                                            Button(style=ButtonStyle.green, label='Shops',
+                                                                   disabled=True),
+                                                            self.client.add_callback(
+                                                                Button(style=ButtonStyle.green, label='Inventory'),
+                                                                self.open_inventory
+                                                            )
+                                                        ]])
 
         await self.client.bot.wait_for('button_click', check=lambda inter: inter.custom_id == 'sub_continue')
 
@@ -232,7 +238,8 @@ class Inventory(Selectable):
     def __init__(self,
                  client: DiscordComponents,
                  channel: Messageable,
-                 players: List[rpg.Player]):
+                 players: List[rpg.Player],
+                 update_fn: Callable):
         super().__init__(client, channel, [player.name for player in players], 'Whose inventory do you want to view?',
                          select_button=Button(label='View', custom_id='view'),
                          extra_components=[client.add_callback(Button(style=ButtonStyle.red, label='Back'),
@@ -241,6 +248,7 @@ class Inventory(Selectable):
         self.channel = channel
         self.players = players
         self.last_chosen = 'weapons'
+        self.update_fn = update_fn
 
     async def select_callback(self, inter: Interaction):
         if inter.custom_id not in {'weapons', 'armors', 'consumables'}:
@@ -300,14 +308,12 @@ class Inventory(Selectable):
                     else:
                         self.player.equip_armor(self.options[self.index])
                 else:
-                    print(self.inv.last_chosen)
-                    print('Made it!')
                     if self.inv.last_chosen == 'weapons':
                         self.player.unequip_weapon()
                     else:
-                        print('SO here?')
                         self.player.unequip_armor(self.options[self.index])
 
+                await self.inv.update_fn()
                 await _inter.edit_origin(embed=self.get_embed(), components=self.get_components())
 
         await InventoryEquip(self).start(inter)
