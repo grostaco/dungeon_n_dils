@@ -16,8 +16,12 @@ class Character(metaclass=ABCMeta):
         self.consumables = consumables
         self.armors = armors
         self.stats = stats
-        self.equipped_weapon = Weapon('Baby bitch hands', 'Your pussy ass hands', Stats())
-        self.equipped_armors: List[Optional[Armor]] = [Armor('Nothing', 'Stop being poor', 1, Stats()), None, None]
+        self.equipped_weapon = None
+        self.equipped_armors: List[Optional[Armor]] = [None, None, None]
+
+    def get_item_stats(self) -> Stats:
+        equipped_weapon = self.equipped_weapon or Weapon('', '', Stats())
+        return equipped_weapon.stats + sum([armor.stats for armor in self.equipped_armors if armor], Stats())
 
 
 class Player(Character):
@@ -41,9 +45,6 @@ class Player(Character):
             self.equipped_armors[armor[0].piece_type].name += ' *(Equipped)*'
             return armor[0]
         return None
-
-    def get_item_stats(self) -> Stats:
-        return self.equipped_weapon.stats + sum([armor.stats for armor in self.equipped_armors])
 
     def unequip_weapon(self) -> None:
         if self.equipped_weapon:
