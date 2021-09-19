@@ -40,7 +40,8 @@ class Player(Character):
     def equip_armor(self, armor_name: str) -> Optional[Armor]:
         armor = tuple(filter(lambda a: a.name == armor_name, self.armors))
         if armor:
-            self.unequip_armor(armor[0].name)
+            self.unequip_armor(self.equipped_armors[armor[0].piece_type].name
+                               if self.equipped_armors[armor[0].piece_type] else '')
             self.equipped_armors[armor[0].piece_type] = armor[0]
             self.equipped_armors[armor[0].piece_type].name += ' *(Equipped)*'
             return armor[0]
