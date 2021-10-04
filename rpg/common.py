@@ -15,3 +15,11 @@ class Stats:
     def __add__(self, other: Stats):
         return Stats(self.hp + other.hp, self.defense + other.defense,
                      self.atk + other.atk, self.int + other.int)
+
+    def __sub__(self, other):
+        return self + -1 * other
+
+    def __mul__(self, multiplier: float):
+        return Stats(self.hp * multiplier, self.defense * multiplier,
+                     self.atk * multiplier, self.int * multiplier)
+
