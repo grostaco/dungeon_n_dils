@@ -22,7 +22,7 @@ class NormalAttack(Skill):
         super().__init__('Normal Attack')
 
     def use(self, user: Character, target: Character):
-        target.stats.hp -= min(target.effective_stats.hp, 10 + user.effective_stats.atk * 0.4)
+        target.effective_stats.hp -= min(target.effective_stats.hp, 10 + user.effective_stats.atk * 0.4)
 
 
 class Heal(Skill):
@@ -30,4 +30,4 @@ class Heal(Skill):
         super().__init__('Heal')
 
     def use(self, user: Character, target: Character):
-        target.stats.hp = min(target.stats.hp, target.effective_stats.hp + 5 + user.effective_stats.int * 0.4)
+        target.effective_stats.hp = min(target.stats.hp, target.effective_stats.hp + 5 + user.effective_stats.int * 0.4)
