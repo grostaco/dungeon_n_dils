@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
-from typing import Union
+from typing import Union, Any
 from .common import Stats
 
 
@@ -9,12 +9,13 @@ class Item(metaclass=ABCMeta):
     def __init__(self, item_name, flavor_text):
         self.name = item_name
         self.flavor_text = flavor_text
+        self.equipped = False
 
     @abstractmethod
-    def __eq__(self, other): ...
+    def __eq__(self, other: Any): ...
 
     @abstractmethod
-    def on_use(self, *args): ...
+    def on_use(self, *args: Any): ...
 
 
 class Weapon(Item):
