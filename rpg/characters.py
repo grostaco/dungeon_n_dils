@@ -1,13 +1,20 @@
 from __future__ import annotations
 
-from abc import ABCMeta
-from typing import Optional, List, Iterable
+from typing import List, Iterable, TYPE_CHECKING
+import copy
 
 from .common import Stats
 from .items import Weapon, Armor, Consumable
 
+if TYPE_CHECKING:
+    from .skills import Skill
+    from .effects import Effect
 
-class Character(metaclass=ABCMeta):
+hands = Weapon('', '', Stats())
+nothing = Armor('', '', -1, Stats())
+
+
+class Character:
     def __init__(self, name: str,
                  weapons: Iterable[Weapon] = (), armors: Iterable[Armor] = (), consumables: Iterable[Consumable] = (),
                  stats: Stats = None):
@@ -16,45 +23,33 @@ class Character(metaclass=ABCMeta):
         self.consumables = consumables
         self.armors = armors
         self.stats = stats
-        self.equipped_weapon = None
-        self.equipped_armors: List[Optional[Armor]] = [None, None, None]
+        self.effective_stats = copy.copy(stats)
+        self.equipped_weapon: Weapon = hands
+        self.equipped_armors: List[Armor] = [nothing, nothing, nothing]
+        self.effects: List[Effect] = []
+        self.skills: List[Skill] = []
 
     def get_item_stats(self) -> Stats:
-        equipped_weapon = self.equipped_weapon or Weapon('', '', Stats())
-        return equipped_weapon.stats + sum([armor.stats for armor in self.equipped_armors if armor], Stats())
+        return self.equipped_weapon.stats + sum((armor.stats for armor in self.equipped_armors), Stats())
 
-
-class Player(Character):
-    def __init__(self, name, weapons, consumables, armors, stats):
-        super().__init__(name, weapons, armors, consumables, stats)
-
-    def equip_weapon(self, weapon_name: str) -> Optional[Weapon]:
-        weapon = tuple(filter(lambda w: w.name == weapon_name, self.weapons))
-        if weapon and weapon[0] is not self.equipped_weapon:
+    def equip_weapon(self, weapon_name: str):
+        weapon = next((w for w in self.weapons if w.name == weapon_name), None)
+        if weapon:
             self.unequip_weapon()
-            self.equipped_weapon = weapon[0]
-            self.equipped_weapon.name += ' *(Equipped)*'
-            return weapon[0]
-        return None
+            weapon.equipped = True
+            self.equipped_weapon = weapon
 
-    def equip_armor(self, armor_name: str) -> Optional[Armor]:
-        armor = tuple(filter(lambda a: a.name == armor_name, self.armors))
+    def equip_armor(self, armor_name: str):
+        armor = next((a for a in self.armors if a.name == armor_name), None)
         if armor:
-            self.unequip_armor(self.equipped_armors[armor[0].piece_type].name
-                               if self.equipped_armors[armor[0].piece_type] else '')
-            self.equipped_armors[armor[0].piece_type] = armor[0]
-            self.equipped_armors[armor[0].piece_type].name += ' *(Equipped)*'
-            return armor[0]
-        return None
+            self.unequip_armor(armor.piece_type)
+            self.equipped_armors[armor.piece_type] = armor
+            armor.equipped = True
 
-    def unequip_weapon(self) -> None:
-        if self.equipped_weapon:
-            self.equipped_weapon.name = self.equipped_weapon.name[:-len(' *(Equipped)*')]
-            self.equipped_weapon = None
+    def unequip_weapon(self):
+        self.equipped_weapon.equipped = False
+        self.equipped_weapon = hands
 
-    def unequip_armor(self, armor_name: str) -> None:
-        armor = tuple(filter(lambda a: a and a.name == armor_name, self.equipped_armors))
-        if armor:
-            self.equipped_armors[armor[0].piece_type].name = self.equipped_armors[armor[0].piece_type].name[
-                                                             :-len(' *(Equipped)*')]
-            self.equipped_armors[armor[0].piece_type] = None
+    def unequip_armor(self, piece_type: int):
+        self.equipped_armors[piece_type].equipped = False
+        self.equipped_armors[piece_type] = nothing
