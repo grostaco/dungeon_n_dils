@@ -1,4 +1,4 @@
-from typing import List, Optional, Sequence, Any, Callable
+from typing import List, Optional, Iterator, Any, Callable, Tuple
 from abc import ABCMeta, abstractmethod
 import rpg
 import discord
@@ -89,6 +89,19 @@ class Selectable(metaclass=ABCMeta):
                                 components=self.get_components())
 
 
+class Shop(Selectable):
+    def __init__(self,
+                 client: DiscordComponents,
+                 channel: Messageable,
+                 weapons: Tuple[str, rpg.Weapon],
+                 armors: Tuple[str, rpg.Weapon],
+                 consumables: Tuple[str, rpg.Weapon]):
+        super().__init__()
+
+    async def select_callback(self, inter: Interaction):
+        pass
+
+
 class Dialogue:
     def __init__(self,
                  client: DiscordComponents,
@@ -175,7 +188,7 @@ class Fight:
     def __init__(self,
                  client: DiscordComponents,
                  channel: Messageable,
-                 party_one: List[rpg.Player],
+                 party_one: List[rpg.Character],
                  party_two: List[rpg.Character]):
         self.client = client
         self.channel = channel
@@ -211,6 +224,13 @@ class Fight:
         await inter.edit_origin(embed=self.get_embed())
         await self.inventory.start()
 
+    async def begin_fight(self, inter: Interaction):
+        class _Fight:
+            def __init__(self, fight: rpg.Fight):
+                self.fight = fight
+
+            ...
+
     async def update(self):
         await self.original_message.edit(embed=self.get_embed())
 
@@ -221,7 +241,7 @@ class Fight:
                                                             self.client.add_callback(
                                                                 Button(style=ButtonStyle.blue, label='Proceed',
                                                                        custom_id='sub_continue'),
-                                                                remove_callback
+                                                                self.begin_fight,
                                                             ),
                                                             Button(style=ButtonStyle.green, label='Shops',
                                                                    disabled=True),
@@ -238,7 +258,7 @@ class Inventory(Selectable):
     def __init__(self,
                  client: DiscordComponents,
                  channel: Messageable,
-                 players: List[rpg.Player],
+                 players: List[rpg.Character],
                  update_fn: Callable):
         super().__init__(client, channel, [player.name for player in players], 'Whose inventory do you want to view?',
                          select_button=Button(label='View', custom_id='view'),
@@ -258,11 +278,13 @@ class Inventory(Selectable):
         player = self.players[self.index]
         embed = discord.Embed(title=f'{player.name}\'s inventory',
                               description='\n\n'.join(
-                                  f'{item.name}\n*{item.flavor_text}*' for item in getattr(player, prop)))
+                                  f'{item.name}{" *(Equipped)*" if item.equipped else ""}\n*{item.flavor_text}*' for
+                                  item
+                                  in getattr(player, prop)))
         styles = [ButtonStyle.green] * 3
         styles[{'weapons': 0, 'armors': 1, 'consumables': 2}[inter.custom_id]] = ButtonStyle.gray
         await inter.edit_origin(embed=embed,
-                                components=self.get_inventory_components(style_array=styles))
+                                components=self.get_inventory_components(style_iter=iter(styles)))
 
     async def view_selection(self, inter: Interaction):
         await inter.edit_origin(embed=Selectable.get_embed(self),
@@ -296,7 +318,7 @@ class Inventory(Selectable):
                 for i, option in enumerate(self.options):
                     if i == self.index:
                         desc += '▶️   '
-                    desc += f'{option.name}\n'
+                    desc += f'{option.name}{" *(Equipped)*" if option.equipped else ""}\n'
 
                 return discord.Embed(title=self.select_title,
                                      description=desc)
@@ -318,19 +340,19 @@ class Inventory(Selectable):
 
         await InventoryEquip(self).start(inter)
 
-    def get_inventory_components(self, *, style_array: Sequence[ButtonStyle] = (ButtonStyle.green,) * 3):
+    def get_inventory_components(self, *, style_iter: Iterator[ButtonStyle] = iter(())):
         return [
             [
                 self.client.add_callback(
-                    Button(style=style_array[0], label='Weapons', custom_id='weapons'),
+                    Button(style=next(style_iter, ButtonStyle.green), label='Weapons', custom_id='weapons'),
                     self.select_callback,
                 ),
                 self.client.add_callback(
-                    Button(style=style_array[1], label='Armor', custom_id='armors'),
+                    Button(style=next(style_iter, ButtonStyle.green), label='Armor', custom_id='armors'),
                     self.select_callback,
                 ),
                 self.client.add_callback(
-                    Button(style=style_array[2], label='Consumables', custom_id='consumables'),
+                    Button(style=next(style_iter, ButtonStyle.green), label='Consumables', custom_id='consumables'),
                     self.select_callback,
                 ),
                 self.client.add_callback(
