@@ -4,7 +4,7 @@ from typing import Union, Iterable, TYPE_CHECKING
 from abc import ABCMeta, abstractmethod
 
 if TYPE_CHECKING:
-    from .characters import Character, Stats
+    from .characters import Character
     from .effects import Effect
 
 
@@ -30,4 +30,5 @@ class Heal(Skill):
         super().__init__('Heal')
 
     def use(self, user: Character, target: Character):
-        target.effective_stats.hp = min(target.stats.hp, target.effective_stats.hp + 5 + user.effective_stats.int * 0.4)
+        target.effective_stats.hp = min(target.stats.hp,
+                                        target.effective_stats.hp + 5.0 + user.effective_stats.int * 0.4)
