@@ -9,9 +9,10 @@ from discord_components import (
     ButtonStyle,
     Interaction,
     Component,
+    ComponentMessage,
 )
 
-from .util import remove_callback
+from .util import remove_callback, respond_callback
 import rpg
 
 
@@ -35,6 +36,7 @@ class Selectable(metaclass=ABCMeta):
         self.select_button = select_button
         self.extra_components = extra_components or []
         self.index = 0
+        self._component: Optional[ComponentMessage] = None
 
     def get_components(self):
         return [
@@ -64,13 +66,13 @@ class Selectable(metaclass=ABCMeta):
         return discord.Embed(title=self.select_title,
                              description=desc)
 
-    async def start(self, inter: Optional[Interaction] = None):
+    async def start(self, inter: Optional[ComponentMessage] = None):
         if inter:
-            await inter.edit_origin(embed=self.get_embed(),
-                                    components=self.get_components())
+            await inter.edit(embed=self.get_embed(),
+                             components=self.get_components())
         else:
-            await self.channel.send(embed=self.get_embed(),
-                                    components=self.get_components())
+            self._component = await self.channel.send(embed=self.get_embed(),
+                                                      components=self.get_components())
 
     async def button_up_callback(self, inter: Interaction):
         self.index = (self.index - 1) % len(self.options)
@@ -88,13 +90,17 @@ class Selectable(metaclass=ABCMeta):
         await inter.edit_origin(embed=self.get_embed(),
                                 components=self.get_components())
 
+    @property
+    def component(self):
+        return self._component
+
 
 class SkillSelect(Selectable):
     def __init__(self, client: DiscordComponents, channel: Messageable, skills: List[rpg.Skill]):
         super().__init__(client, channel, [skill.name for skill in skills], 'Skill select',
                          select_button=Button(label='Select', custom_id='skill_selected'))
 
-    async def select_callback(self, _inter: Interaction): await remove_callback(_inter)
+    async def select_callback(self, _inter: Interaction): await respond_callback(_inter)
 
 
 class TargetSelect(Selectable):
@@ -102,4 +108,4 @@ class TargetSelect(Selectable):
         super().__init__(client, channel, [c.name for c in _fight.lookup], 'Select your target',
                          select_button=Button(label='Select', custom_id='target_selected'))
 
-    async def select_callback(self, _inter: Interaction): await remove_callback(_inter)
+    async def select_callback(self, _inter: Interaction): await respond_callback(_inter)
