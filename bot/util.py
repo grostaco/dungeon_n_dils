@@ -1,7 +1,6 @@
-from discord_components import Interaction
-from discord.ext import commands
-
 from typing import Protocol, Callable, Optional, Any
+
+from discord_components import Interaction
 
 
 class Startable(Protocol):

@@ -1,11 +1,10 @@
 from __future__ import annotations
-from typing import Union, Iterable, TYPE_CHECKING
 
 from abc import ABCMeta, abstractmethod
+from typing import Union, Iterable, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .characters import Character
-    from .effects import Effect
 
 
 class Skill(metaclass=ABCMeta):

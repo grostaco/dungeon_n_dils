@@ -22,7 +22,10 @@ class Shop(Selectable):
                  weapons: Tuple[str, rpg.Weapon],
                  armors: Tuple[str, rpg.Weapon],
                  consumables: Tuple[str, rpg.Weapon]):
-        super().__init__()
+        super().__init__(client, channel, [], 'TODO')
+        self.weapons = weapons
+        self.armors = armors
+        self.consumables = consumables
 
     async def select_callback(self, inter: Interaction):
         pass
