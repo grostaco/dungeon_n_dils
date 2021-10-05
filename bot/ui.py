@@ -163,7 +163,15 @@ class Fight:
         await start_wait(self.client.bot, s, check=lambda _inter: _inter.custom_id == 'skill_selected')
 
         t = TargetSelect(self.client, self.channel, fight)
-        await start_wait(self.client.bot, t, check=lambda _inter: _inter.custom_id == 'target_selected')
+        await t.start(s.component)
+        await self.client.bot.wait_for(event='button_click', check=lambda _inter: _inter.custom_id == 'target_selected')
+
+        await s.component.edit(embed=discord.Embed.from_dict({
+            'title': f'{current.name} used {s.options[s.index]} on {t.options[t.index]}', 'fields': [
+                {'name': 'It did something',
+                 'value': 'A'}
+            ]
+        }), components=[])
 
     async def update(self):
         await self.original_message.edit(embed=self.get_embed())
