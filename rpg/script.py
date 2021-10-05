@@ -82,11 +82,16 @@ class Fight:
         self.current: Optional[Character] = None
 
     def next_turn(self) -> Optional[Character]:
-        if any(map(attrgetter('stats.hp'), self.left)) or any(map(attrgetter('stats.hp'), self.right)):
+        if not any(map(attrgetter('stats.hp'), self.left)) or not any(map(attrgetter('stats.hp'), self.right)):
             return None
 
         self.update_effects()
-        self.current = next(self.turns)
+
+        # health being negative is intentional
+        self.current = next((turn for turn in self.turns if turn.effective_stats.hp), None)
+        if self.current is None:
+            raise RuntimeError('Every character has 0 hp which is impossible to reach here.')
+
         return self.current
 
     # should only be called if next_turn returns None
