@@ -1,13 +1,16 @@
 from abc import ABCMeta, abstractmethod
 from typing import Callable, Optional
 
-
 from .characters import Character
+
 """
 On Effects
 
 Is it [periodic] or [persistent]? If not, how does it [trigger]?
 What does it [do]?
+
+Does it modify the [self] or [meta] of [self]?
+[self] refers to the change of stats
 
 If duration is -1, it is persistent, else it is periodic
 """
@@ -32,5 +35,5 @@ class Poison(Effect):
 
     def modify(self, character: Character):
         if self.duration:
+            character.effective_stats.hp = max(0, character.effective_stats.hp - character.stats.hp * 0.05)
             self.duration -= 1
-
