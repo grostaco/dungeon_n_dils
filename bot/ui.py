@@ -169,7 +169,7 @@ class Fight:
         await self.inventory.start()
 
     async def begin_fight(self, inter: Interaction):
-        await inter.respond(type=7)
+        await inter.edit_origin(components=self.get_component(True))
         fight = rpg.Fight(self.party_one, self.party_two)
         fight_ui = FightUI(self.channel, fight)
         await fight_ui.send()
