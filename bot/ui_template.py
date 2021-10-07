@@ -1,8 +1,9 @@
 from abc import ABCMeta, abstractmethod
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Iterable
+from itertools import zip_longest
 
-import discord
 from discord.abc import Messageable
+from discord import Message, Embed
 from discord_components import (
     DiscordComponents,
     Button,
@@ -13,7 +14,7 @@ from discord_components import (
 )
 
 from .util import remove_callback, respond_callback
-import rpg
+from rpg import Character, Effect, Skill, Fight
 
 
 # noinspection PyArgumentList
@@ -63,8 +64,8 @@ class Selectable(metaclass=ABCMeta):
                 desc += '▶️   '
             desc += f'{option}\n'
 
-        return discord.Embed(title=self.select_title,
-                             description=desc)
+        return Embed(title=self.select_title,
+                     description=desc)
 
     async def start(self, inter: Optional[ComponentMessage] = None):
         if inter:
@@ -96,7 +97,7 @@ class Selectable(metaclass=ABCMeta):
 
 
 class SkillSelect(Selectable):
-    def __init__(self, client: DiscordComponents, channel: Messageable, skills: List[rpg.Skill]):
+    def __init__(self, client: DiscordComponents, channel: Messageable, skills: List[Skill]):
         super().__init__(client, channel, [skill.name for skill in skills], 'Skill select',
                          select_button=Button(label='Select', custom_id='skill_selected'))
 
@@ -104,8 +105,42 @@ class SkillSelect(Selectable):
 
 
 class TargetSelect(Selectable):
-    def __init__(self, client: DiscordComponents, channel: Messageable, _fight: rpg.Fight):
+    def __init__(self, client: DiscordComponents, channel: Messageable, _fight: Fight):
         super().__init__(client, channel, [c.name for c in _fight.lookup], 'Select your target',
                          select_button=Button(label='Select', custom_id='target_selected'))
 
     async def select_callback(self, _inter: Interaction): await respond_callback(_inter)
+
+
+class FightUI:
+    def __init__(self, channel: Messageable, fight: Fight):
+        self.channel = channel
+        self.fight = fight
+        self.message: Optional[Message] = None
+
+    def get_ui_text(self):
+        buf = '```swift\n'
+        t = iter((f'{"VS"}',))
+        for lc, rc in zip_longest(self.fight.left, self.fight.right, fillvalue=Character('')):
+            buf += f'{lc.name:<12}{next(t, ""):^18}{rc.name}\n' \
+                   f'{"[" + "#" * 10 + "]" if lc.name else "":<15} {"[" + "#" * 10 + "]" if rc.name else "": >26}\n' \
+                   f'{"Effects" if lc.name else "":<10} {"Effects" if rc.name else "":>26}'
+            for l_effect, r_effect in zip_longest(lc.effects, rc.effects, fillvalue=None):
+                buf += '\n'
+                l_effect_str = f'{l_effect.name} ({l_effect.duration} Turns)' if l_effect else ''
+                r_effect_str = f'{r_effect.name} ({r_effect.duration} Turns)' if r_effect else ''
+                buf += f'{l_effect_str:<30}{r_effect_str}'
+            buf += '\n\n'
+        buf += '```'
+        return buf
+
+    async def send(self):
+        self.message = await self.channel.send(content=self.get_ui_text())
+
+    async def update(self):
+        await self.message.edit(content=self.get_ui_text())
+
+    async def delete(self):
+        await self.message.delete()
+        self.message = None
+
