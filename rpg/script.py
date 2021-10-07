@@ -74,8 +74,8 @@ class Choice:
 
 class Fight:
     def __init__(self, left: Iterable[Character], right: Iterable[Character]):
-        self.left = left
-        self.right = right
+        self.left = list(left)
+        self.right = list(right)
         self.lookup = tuple(chain.from_iterable([left, right]))
         self.name_lookup = {character.name: character for character in self.lookup}
         self.turns = cycle(self.lookup)
