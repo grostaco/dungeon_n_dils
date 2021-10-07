@@ -123,18 +123,21 @@ class FightUI:
         t = iter((f'{"VS"}',))
         for lc, rc in zip_longest(self.fight.left, self.fight.right, fillvalue=Character('')):
             buf += f'{lc.name:<12}{next(t, ""):^18}{rc.name}\n' \
-                   f'{"[" + "#" * 10 + "]" if lc.name else "":<15} {"[" + "#" * 10 + "]" if rc.name else "": >26}\n' \
+                   f'{self.get_health_bar(lc) if lc.name else "": <16}'\
+                   f'{self.get_health_bar(rc) if rc.name else "": >26}\n' \
                    f'{"Effects" if lc.name else "":<10} {"Effects" if rc.name else "":>26}'
             for l_effect, r_effect in zip_longest(lc.effects, rc.effects, fillvalue=None):
-                buf += '\n'
                 l_effect_str = f'{l_effect.name} ({l_effect.duration} Turns)' if l_effect else ''
                 r_effect_str = f'{r_effect.name} ({r_effect.duration} Turns)' if r_effect else ''
-                buf += f'{l_effect_str:<30}{r_effect_str}'
+                buf += f'{l_effect_str:<30}{r_effect_str}\n'
             buf += '\n\n'
         buf += '```'
         return buf
 
     async def send(self):
+        for character in self.fight.lookup:
+            character.update_effective_stats()
+
         self.message = await self.channel.send(content=self.get_ui_text())
 
     async def update(self):
