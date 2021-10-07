@@ -11,7 +11,7 @@ from discord_components import (
 )
 
 import rpg
-from .ui_template import Selectable, TargetSelect, SkillSelect
+from .ui_template import Selectable, TargetSelect, SkillSelect, FightUI
 from .util import remove_callback, start_wait
 
 
@@ -156,6 +156,8 @@ class Fight:
     async def begin_fight(self, inter: Interaction):
         await inter.respond(type=7)
         fight = rpg.Fight(self.party_one, self.party_two)
+        fight_ui = FightUI(self.channel, fight)
+        await fight_ui.send()
         current = fight.next_turn()
 
         s = SkillSelect(self.client, self.channel, current.skills)
@@ -172,6 +174,8 @@ class Fight:
                  'value': 'A'}
             ]
         }), components=[])
+
+        await fight_ui.update()
 
     async def update(self):
         await self.original_message.edit(embed=self.get_embed())
