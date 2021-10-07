@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Iterable, TYPE_CHECKING
+from typing import List, Iterable, TYPE_CHECKING, Optional, Union
 import copy
 
 from .common import Stats
@@ -22,10 +22,10 @@ class Character:
         self.weapons = weapons
         self.consumables = consumables
         self.armors = armors
-        self.stats = stats
-        self.effective_stats = copy.copy(stats)
+        self.base_stats = stats
         self.equipped_weapon: Weapon = hands
         self.equipped_armors: List[Armor] = [nothing, nothing, nothing]
+        self.effective_stats: Optional[Stats] = None
         self.effects: List[Effect] = []
         self.skills: List[Skill] = []
 
@@ -53,3 +53,14 @@ class Character:
     def unequip_armor(self, piece_type: int):
         self.equipped_armors[piece_type].equipped = False
         self.equipped_armors[piece_type] = nothing
+
+    def update_effective_stats(self):
+        self.effective_stats = copy.copy(self.stats)
+
+    def use_skill(self, skill_name: str, targets: Optional[Union[Character, List[Character]]]):
+        skill = next((skill for skill in self.skills if skill_name == skill.name), None)
+        skill.use(self, targets)
+
+    @property
+    def stats(self):
+        return self.base_stats + self.get_item_stats()
