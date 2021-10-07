@@ -137,10 +137,10 @@ class Fight:
                     return '\u200b'
                 else:
                     stats = character.get_item_stats()
-                    return f'hp: {character.stats.hp} (+{stats.hp})\n' \
-                           f'atk: {character.stats.atk} (+{stats.atk})\n' \
-                           f'def: {character.stats.defense} (+{stats.defense})\n' \
-                           f'int: {character.stats.int} (+{stats.int})'
+                    return f'hp: {character.base_stats.hp} (+{stats.hp})\n' \
+                           f'atk: {character.base_stats.atk} (+{stats.atk})\n' \
+                           f'def: {character.base_stats.defense} (+{stats.defense})\n' \
+                           f'int: {character.base_stats.int} (+{stats.int})'
 
             embed.add_field(name=p1.name, value=stat_str(p1), inline=True)
             embed.add_field(name=fill_char, value='\u200b')
