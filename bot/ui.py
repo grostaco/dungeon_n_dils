@@ -149,6 +149,21 @@ class Fight:
 
         return embed
 
+    def get_component(self, proceed_disabled=False) :
+        return [[
+            self.client.add_callback(
+                Button(style=ButtonStyle.blue, label='Proceed',
+                       custom_id='sub_continue', disabled=proceed_disabled),
+                self.begin_fight,
+            ),
+            Button(style=ButtonStyle.green, label='Shops',
+                   disabled=True),
+            self.client.add_callback(
+                Button(style=ButtonStyle.green, label='Inventory'),
+                self.open_inventory
+            )
+        ]]
+
     async def open_inventory(self, inter: Interaction):
         await inter.edit_origin(embed=self.get_embed())
         await self.inventory.start()
@@ -183,19 +198,7 @@ class Fight:
     async def start(self):
         # noinspection PyArgumentList
         self.original_message = await self.channel.send(embed=self.get_embed(),
-                                                        components=[[
-                                                            self.client.add_callback(
-                                                                Button(style=ButtonStyle.blue, label='Proceed',
-                                                                       custom_id='sub_continue'),
-                                                                self.begin_fight,
-                                                            ),
-                                                            Button(style=ButtonStyle.green, label='Shops',
-                                                                   disabled=True),
-                                                            self.client.add_callback(
-                                                                Button(style=ButtonStyle.green, label='Inventory'),
-                                                                self.open_inventory
-                                                            )
-                                                        ]])
+                                                        components=self.get_component())
 
         await self.client.bot.wait_for('button_click', check=lambda inter: inter.custom_id == 'sub_continue')
 
