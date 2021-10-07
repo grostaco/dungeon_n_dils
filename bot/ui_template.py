@@ -147,3 +147,7 @@ class FightUI:
         await self.message.delete()
         self.message = None
 
+    @staticmethod
+    def get_health_bar(character: Character):
+        return "[" + "#" * int(character.effective_stats.hp / character.stats.hp * 10) +\
+               "-" * (10 - int(character.effective_stats.hp / character.stats.hp * 10)) + "]"
