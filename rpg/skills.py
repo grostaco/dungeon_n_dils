@@ -14,6 +14,9 @@ class Skill(metaclass=ABCMeta):
     @abstractmethod
     def use(self, user: Character, targets: Union[Character, Iterable[Character], None]): ...
 
+    @abstractmethod
+    def use_text(self, user: Character, targets: Union[Character, Iterable[Character], None]) -> str: ...
+
 
 # Scales off of the user's ATK stats
 class NormalAttack(Skill):
@@ -23,6 +26,10 @@ class NormalAttack(Skill):
     def use(self, user: Character, target: Character):
         target.effective_stats.hp -= min(target.effective_stats.hp, 10 + user.effective_stats.atk * 0.4)
 
+    def use_text(self, user: Character, target: Character) -> str:
+        return f'{user.name} did a normal attack and dealt ' \
+               f'{min(target.effective_stats.hp, 10 + user.effective_stats.atk * 0.4)} dmg to {target.name}'
+
 
 class Heal(Skill):
     def __init__(self):
@@ -31,3 +38,8 @@ class Heal(Skill):
     def use(self, user: Character, target: Character):
         target.effective_stats.hp = min(target.stats.hp,
                                         target.effective_stats.hp + 5.0 + user.effective_stats.int * 0.4)
+
+    def use_text(self, user: Character, target: Character) -> str:
+        return f'{user.name} did a heal and recovered' \
+               f' {round(target.stats.hp - min(target.stats.hp, target.effective_stats.hp + 5.0 + user.effective_stats.int * 0.4), 2)} hp ' \
+               f'for {target.name}'
