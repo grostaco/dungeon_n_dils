@@ -8,6 +8,7 @@ from discord_components import (
     Button,
     ButtonStyle,
     Interaction,
+    Component,
 )
 
 import rpg
@@ -137,10 +138,10 @@ class Fight:
                     return '\u200b'
                 else:
                     stats = character.get_item_stats()
-                    return f'hp: {character.base_stats.hp} (+{stats.hp})\n' \
-                           f'atk: {character.base_stats.atk} (+{stats.atk})\n' \
-                           f'def: {character.base_stats.defense} (+{stats.defense})\n' \
-                           f'int: {character.base_stats.int} (+{stats.int})'
+                    return f'hp: {character.base_stats.hp} ({stats.hp:+})\n' \
+                           f'atk: {character.base_stats.atk} ({stats.atk:+})\n' \
+                           f'def: {character.base_stats.defense} ({stats.defense:+})\n' \
+                           f'int: {character.base_stats.int} ({stats.int:+})'
 
             embed.add_field(name=p1.name, value=stat_str(p1), inline=True)
             embed.add_field(name=fill_char, value='\u200b')
@@ -149,7 +150,7 @@ class Fight:
 
         return embed
 
-    def get_component(self, proceed_disabled=False) :
+    def get_component(self, proceed_disabled=False) -> List[List[Component]]:
         return [[
             self.client.add_callback(
                 Button(style=ButtonStyle.blue, label='Proceed',
@@ -170,27 +171,30 @@ class Fight:
 
     async def begin_fight(self, inter: Interaction):
         await inter.edit_origin(components=self.get_component(True))
+
         fight = rpg.Fight(self.party_one, self.party_two)
         fight_ui = FightUI(self.channel, fight)
         await fight_ui.send()
-        current = fight.next_turn()
 
-        s = SkillSelect(self.client, self.channel, current.skills)
+        while current := fight.next_turn():
+            s = SkillSelect(self.client, self.channel, current.skills)
+            t = TargetSelect(self.client, self.channel, fight)
 
-        await start_wait(self.client.bot, s, check=lambda _inter: _inter.custom_id == 'skill_selected')
+            await start_wait(self.client.bot, s, check=lambda _inter: _inter.custom_id == 'skill_selected')
+            await t.start(s.component)
+            await self.client.bot.wait_for(event='button_click',
+                                           check=lambda _inter: _inter.custom_id == 'target_selected')
 
-        t = TargetSelect(self.client, self.channel, fight)
-        await t.start(s.component)
-        await self.client.bot.wait_for(event='button_click', check=lambda _inter: _inter.custom_id == 'target_selected')
+            skill = current.get_skill(s.options[s.index])
+            await s.component.edit(embed=discord.Embed.from_dict({
+                'title': 'Combat Log',
+                'description': skill.use_text(current, fight.lookup[t.index])
+            }), components=[])
 
-        await s.component.edit(embed=discord.Embed.from_dict({
-            'title': f'{current.name} used {s.options[s.index]} on {t.options[t.index]}', 'fields': [
-                {'name': 'It did something',
-                 'value': 'A'}
-            ]
-        }), components=[])
+            current.use_skill(s.options[s.index], fight.lookup[t.index])
+            await fight_ui.update()
 
-        await fight_ui.update()
+        await inter.edit_origin(components=self.get_component())
 
     async def update(self):
         await self.original_message.edit(embed=self.get_embed())
