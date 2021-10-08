@@ -154,3 +154,27 @@ class FightUI:
     def get_health_bar(character: Character):
         return "[" + "#" * int(character.effective_stats.hp / character.stats.hp * 10) + \
                "-" * (10 - int(character.effective_stats.hp / character.stats.hp * 10)) + "]"
+
+
+class CombatLog:
+    def __init__(self, channel: Messageable):
+        self.logs: List[str] = []
+        self.channel = channel
+        self.message: Optional[Message] = None
+
+    def get_embed(self) -> Embed:
+        embed = Embed(title='Combat Log')
+        embed.description = '\n'.join(self.logs)
+        return embed
+
+    async def send(self):
+        self.message = await self.channel.send(embed=self.get_embed())
+
+    async def update(self):
+        await self.message.edit(embed=self.get_embed())
+
+    def add_log(self, message: str):
+        self.logs.append(message)
+
+    async def remove(self):
+        await self.message.delete()
