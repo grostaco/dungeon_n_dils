@@ -188,7 +188,7 @@ class Fight:
         await combat_log.send()
 
         while current := fight.next_turn():
-            s = SkillSelect(self.client, self.channel, current.skills)
+            s = SkillSelect(self.client, self.channel, current.skills, current.name)
             t = TargetSelect(self.client, self.channel, fight)
 
             await start_wait(self.client.bot, s, check=lambda _inter: _inter.custom_id == 'skill_selected',
