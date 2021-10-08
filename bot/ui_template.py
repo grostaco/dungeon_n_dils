@@ -100,8 +100,10 @@ class Selectable(metaclass=ABCMeta):
 
 
 class SkillSelect(Selectable):
-    def __init__(self, client: DiscordComponents, channel: Messageable, skills: List[Skill]):
-        super().__init__(client, channel, [skill.name for skill in skills], 'Skill select',
+    def __init__(self, client: DiscordComponents, channel: Messageable, skills: List[Skill],
+                 player_name: str):
+        super().__init__(client, channel, [skill.name for skill in skills],
+                         f'{player_name}\'s turn, select your skill!',
                          select_button=Button(label='Select', custom_id='skill_selected'))
 
     async def select_callback(self, _inter: Interaction): await respond_callback(_inter)
