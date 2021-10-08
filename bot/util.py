@@ -20,6 +20,7 @@ async def respond_callback(inter: Interaction, _type: int = 7):
 
 
 async def start_wait(bot: Waitable, startable: Startable, event: str = 'button_click',
-                     check: Optional[Callable[[Interaction], Any]] = None):
-    await startable.start()
+                     check: Optional[Callable[[Interaction], Any]] = None,
+                     start_args: Any = ()):
+    await startable.start(*start_args)
     await bot.wait_for(event=event, check=check or (lambda inter: inter.custom_id == 'continue'))
