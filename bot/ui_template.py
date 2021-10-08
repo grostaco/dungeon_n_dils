@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import List, Optional, Any, Iterable
+from typing import List, Optional, Any, Iterable, Union
 from itertools import zip_longest
 
 from discord.abc import Messageable
@@ -67,10 +67,13 @@ class Selectable(metaclass=ABCMeta):
         return Embed(title=self.select_title,
                      description=desc)
 
-    async def start(self, inter: Optional[ComponentMessage] = None):
-        if inter:
-            await inter.edit(embed=self.get_embed(),
-                             components=self.get_components())
+    async def start(self, inter_or_comp: Optional[Union[ComponentMessage, Interaction]] = None):
+        if isinstance(inter_or_comp, Interaction):
+            await inter_or_comp.edit_origin(embed=self.get_embed(),
+                                            components=self.get_components())
+        elif isinstance(inter_or_comp, ComponentMessage):
+            await inter_or_comp.edit(embed=self.get_embed(),
+                                     components=self.get_components())
         else:
             self._component = await self.channel.send(embed=self.get_embed(),
                                                       components=self.get_components())
@@ -123,7 +126,7 @@ class FightUI:
         t = iter((f'{"VS"}',))
         for lc, rc in zip_longest(self.fight.left, self.fight.right, fillvalue=Character('')):
             buf += f'{lc.name:<12}{next(t, ""):^18}{rc.name}\n' \
-                   f'{self.get_health_bar(lc) if lc.name else "": <16}'\
+                   f'{self.get_health_bar(lc) if lc.name else "": <16}' \
                    f'{self.get_health_bar(rc) if rc.name else "": >26}\n' \
                    f'{"Effects" if lc.name else "":<10} {"Effects" if rc.name else "":>26}'
             for l_effect, r_effect in zip_longest(lc.effects, rc.effects, fillvalue=None):
@@ -149,5 +152,5 @@ class FightUI:
 
     @staticmethod
     def get_health_bar(character: Character):
-        return "[" + "#" * int(character.effective_stats.hp / character.stats.hp * 10) +\
+        return "[" + "#" * int(character.effective_stats.hp / character.stats.hp * 10) + \
                "-" * (10 - int(character.effective_stats.hp / character.stats.hp * 10)) + "]"
