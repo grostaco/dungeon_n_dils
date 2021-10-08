@@ -78,7 +78,7 @@ class Fight:
         self.right = list(right)
         self.lookup = tuple(chain.from_iterable([left, right]))
         self.name_lookup = {character.name: character for character in self.lookup}
-        self.turns = cycle(self.lookup + (42,))
+        self.turns = cycle(self.lookup)
         self.current: Optional[Character] = None
 
     def next_turn(self) -> Optional[Character]:
@@ -86,11 +86,9 @@ class Fight:
             return None
 
         # health being negative is intentional
+        if self.current:
+            self.update_effect(self.current)
         self.current = next((turn for turn in self.turns if turn.effective_stats.hp), None)
-        if self.current == 42:
-            self.current = next((turn for turn in self.turns if turn.effective_stats.hp), None)
-            self.update_effects()
-
         if self.current is None:
             raise RuntimeError('Every character has 0 hp which is impossible to reach here.')
 
@@ -114,7 +112,7 @@ class Fight:
 
         skill.use(self.current, targets)
 
-    def update_effects(self):
-        for character in self.lookup:
-            for effect in character.effects:
-                effect.modify(character)
+    @staticmethod
+    def update_effect(character: Character):
+        for effect in character.effects:
+            effect.modify(character)
