@@ -205,9 +205,11 @@ class Fight:
             await fight_ui.update()
             await combat_log.update()
 
+        if component:
+            await component.delete()
         await fight_ui.remove()
         await combat_log.remove()
-        await inter.edit_origin(components=self.get_component())
+        await inter.message.edit(components=self.get_component())
 
     async def update(self):
         await self.original_message.edit(embed=self.get_embed())
