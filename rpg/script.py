@@ -82,7 +82,8 @@ class Fight:
         self.current: Optional[Character] = None
 
     def next_turn(self) -> Optional[Character]:
-        if not any(map(attrgetter('stats.hp'), self.left)) or not any(map(attrgetter('stats.hp'), self.right)):
+        if not any(map(attrgetter('effective_stats.hp'), self.left)) or not any(map(attrgetter('effective_stats.hp'), self.right)):
+            print('This happened')
             return None
 
         # health being negative is intentional
