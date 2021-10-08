@@ -146,7 +146,7 @@ class FightUI:
     async def update(self):
         await self.message.edit(content=self.get_ui_text())
 
-    async def delete(self):
+    async def remove(self):
         await self.message.delete()
         self.message = None
 
