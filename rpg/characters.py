@@ -57,8 +57,11 @@ class Character:
     def update_effective_stats(self):
         self.effective_stats = copy.copy(self.stats)
 
+    def get_skill(self, skill_name: str) -> Optional[Skill]:
+        return next((skill for skill in self.skills if skill_name == skill.name), None)
+
     def use_skill(self, skill_name: str, targets: Optional[Union[Character, List[Character]]]):
-        skill = next((skill for skill in self.skills if skill_name == skill.name), None)
+        skill = self.get_skill(skill_name)
         skill.use(self, targets)
 
     @property
