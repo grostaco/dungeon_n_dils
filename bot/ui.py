@@ -214,7 +214,8 @@ class Fight:
     async def update(self):
         await self.original_message.edit(embed=self.get_embed())
 
-    async def start(self):
+    async def start(self, fut: Future):
+        self.fut = fut
         # noinspection PyArgumentList
         self.original_message = await self.channel.send(embed=self.get_embed(),
                                                         components=self.get_component())
