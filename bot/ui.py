@@ -1,5 +1,6 @@
 import itertools
-from typing import List, Iterator, Callable, Tuple
+from typing import List, Iterator, Callable, Tuple, Optional
+from asyncio.futures import Future
 
 import discord
 from discord.abc import Messageable
@@ -133,6 +134,7 @@ class Fight:
         self.original_message = None
 
         self.inventory = Inventory(client, channel, party_one, self.update)
+        self.fut: Optional[Future] = None
 
     def get_embed(self):
         embed = discord.Embed(title='It\'s showtime!')
@@ -209,7 +211,11 @@ class Fight:
             await component.delete()
         await fight_ui.remove()
         await combat_log.remove()
-        await inter.message.edit(components=self.get_component())
+        if fight.winner() == 'right':
+            await inter.message.delete()
+            self.fut.set_result('done')
+        else:
+            await inter.message.edit(components=self.get_component())
 
     async def update(self):
         await self.original_message.edit(embed=self.get_embed())
