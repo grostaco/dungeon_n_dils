@@ -83,7 +83,6 @@ class Fight:
 
     def next_turn(self) -> Optional[Character]:
         if not any(map(attrgetter('effective_stats.hp'), self.left)) or not any(map(attrgetter('effective_stats.hp'), self.right)):
-            print('This happened')
             return None
 
         # health being negative is intentional
@@ -96,10 +95,12 @@ class Fight:
         return self.current
 
     # should only be called if next_turn returns None
-    def winner(self) -> Union[Literal['left'], Literal['right']]:
-        if any(map(attrgetter('stats.hp'), self.left)):
+    def winner(self) -> Union[Literal['left'], Literal['right'], None]:
+        if not any(map(attrgetter('effective_stats.hp'), self.left)):
             return 'left'
-        return 'right'
+        elif not any(map(attrgetter('effective_stats.hp'), self.right)):
+            return 'right'
+        return None
 
     def turn_action(self, skill_name: str, target_names: Optional[str, List[str]]):
         skill = next((skill for skill in self.current.skills if skill.name == skill_name), None)
