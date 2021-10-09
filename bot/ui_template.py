@@ -175,6 +175,9 @@ class CombatLog:
     async def update(self):
         await self.message.edit(embed=self.get_embed())
 
+    def clear_log(self):
+        self.logs.clear()
+
     def add_log(self, message: str):
         self.logs.append(message)
 
