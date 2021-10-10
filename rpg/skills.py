@@ -37,10 +37,10 @@ class Heal(Skill):
 
     def use(self, user: Character, target: Character):
         target.effective_stats.hp = min(target.stats.hp,
-                                        target.effective_stats.hp + 5.0 + user.effective_stats.int * 0.4)
+                                        target.effective_stats.hp + (
+                                                    target.stats.hp * 0.4) * user.effective_stats.int / 10)
 
     def use_text(self, user: Character, target: Character) -> str:
         return f'**{user.name}** did a heal and recovered' \
-               f' `{round(min(target.stats.hp - target.effective_stats.hp, (target.effective_stats.hp * 0.4) * user.effective_stats.int / 10), 2)}` hp ' \
+               f' `{round(min(target.stats.hp - target.effective_stats.hp, (target.stats.hp * 0.4) * user.effective_stats.int / 10), 2)}` hp ' \
                f'for **{target.name}**'
-
