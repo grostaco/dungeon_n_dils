@@ -27,7 +27,7 @@ class NormalAttack(Skill):
         target.effective_stats.hp -= min(target.effective_stats.hp, 10 + user.effective_stats.atk * 0.4)
 
     def use_text(self, user: Character, target: Character) -> str:
-        return f'**{user.name}** did a normal attack and dealt ' \
+        return f'**{user.name}** used **{user.equipped_weapon.name}** and did a normal attack and dealt ' \
                f'`{round(min(target.effective_stats.hp, 10 + user.effective_stats.atk * 0.4), 2)}` dmg to **{target.name}**'
 
 
@@ -41,6 +41,6 @@ class Heal(Skill):
                                                     target.stats.hp * 0.4) * user.effective_stats.int / 10)
 
     def use_text(self, user: Character, target: Character) -> str:
-        return f'**{user.name}** did a heal and recovered' \
+        return f'**{user.name}** used **{user.equipped_weapon.name}** did a heal and recovered' \
                f' `{round(min(target.stats.hp - target.effective_stats.hp, (target.stats.hp * 0.4) * user.effective_stats.int / 10), 2)}` hp ' \
                f'for **{target.name}**'
