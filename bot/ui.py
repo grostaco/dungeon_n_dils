@@ -125,10 +125,12 @@ class Fight:
     def __init__(self,
                  client: DiscordComponents,
                  channel: Messageable,
+                 right_channel: Messageable,
                  party_one: List[rpg.Character],
                  party_two: List[rpg.Character]):
         self.client = client
         self.channel = channel
+        self.right_channel = right_channel
         self.party_one = party_one
         self.party_two = party_two
         self.original_message = None
@@ -185,30 +187,49 @@ class Fight:
         fight = rpg.Fight(self.party_one, self.party_two)
         fight_ui = FightUI(self.channel, fight)
         combat_log = CombatLog(self.channel)
-        component = None
+        left_component = None
+        right_component = None
         await fight_ui.send()
         await combat_log.send()
 
         while current := fight.next_turn():
-            s = SkillSelect(self.client, self.channel, current.skills, current.name)
-            t = TargetSelect(self.client, self.channel, fight)
+
+            is_left = current in fight.left
+            if not is_left and current in fight.right and left_component:
+                await left_component.edit(embed=discord.Embed(title='Currently the opponent\'s turn'),
+                                          components=[[Button(style=ButtonStyle.gray, disabled=True,
+                                                              label='Waiting')]])
+            elif is_left and current in fight.left and right_component:
+                await right_component.edit(embed=discord.Embed(title='Currently the opponent\'s turn'),
+                                           components=[[Button(style=ButtonStyle.gray, disabled=True,
+                                                               label='Waiting')]])
+
+            channel = self.channel if is_left else self.right_channel
+            component = left_component if is_left else right_component
+
+            s = SkillSelect(self.client, channel, current.skills, current.name)
+            t = TargetSelect(self.client, channel, fight)
 
             await start_wait(self.client.bot, s, check=lambda _inter: _inter.custom_id == 'skill_selected',
                              start_args=(component,))
             component = component or s.component
+            if is_left:
+                left_component = component
+            else:
+                right_component = component
             await start_wait(self.client.bot, t, check=lambda _inter: _inter.custom_id == 'target_selected',
                              start_args=(component,))
 
             skill = current.get_skill(s.options[s.index])
-
             combat_log.add_log(skill.use_text(current, fight.lookup[t.index]))
-
             current.use_skill(s.options[s.index], fight.lookup[t.index])
             await fight_ui.update()
             await combat_log.update()
 
-        if component:
-            await component.delete()
+        if left_component:
+            await left_component.delete()
+        if right_component:
+            await right_component.delete()
         await fight_ui.remove()
         await combat_log.remove()
         if fight.winner() == 'right':
