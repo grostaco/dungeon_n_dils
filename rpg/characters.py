@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from .skills import Skill
     from .effects import Effect
 
-hands = Weapon('', '', Stats())
+hands = Weapon('bare h a n d s', '', Stats())
 nothing = Armor('', '', -1, Stats())
 
 
