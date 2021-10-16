@@ -16,7 +16,7 @@ nothing = Armor('', '', -1, Stats())
 
 class Character:
     def __init__(self, name: str,
-                 weapons: Iterable[Weapon] = (), armors: Iterable[Armor] = (), consumables: Iterable[Consumable] = (),
+                 weapons: List[Weapon] = (), armors: List[Armor] = (), consumables: List[Consumable] = (),
                  stats: Stats = None):
         self.name = name
         self.weapons = weapons
