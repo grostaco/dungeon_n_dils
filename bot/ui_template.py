@@ -21,20 +21,20 @@ from rpg import Character, Effect, Skill, Fight
 class Selectable(metaclass=ABCMeta):
     def __init__(self,
                  client: DiscordComponents,
-                 channel: Messageable,
+                 channel: Optional[Messageable],
                  options: List[Any],
                  select_title: str,
-                 up_button: Optional[Button] = Button(style=ButtonStyle.blue, emoji='🔼'),
-                 down_button: Optional[Button] = Button(style=ButtonStyle.blue, emoji='🔽'),
-                 select_button: Optional[Button] = Button(style=ButtonStyle.blue, label='Select'),
+                 up_button: Optional[Button] = None,
+                 down_button: Optional[Button] = None,
+                 select_button: Optional[Button] = None,
                  extra_components: List[Component] = None):
         self.client = client
         self.channel = channel
         self.options = options
         self.select_title = select_title
-        self.up_button = up_button
-        self.down_button = down_button
-        self.select_button = select_button
+        self.up_button = up_button or Button(style=ButtonStyle.blue, emoji='🔼')
+        self.down_button = down_button or Button(style=ButtonStyle.blue, emoji='🔽')
+        self.select_button = select_button or Button(style=ButtonStyle.blue, label='Select')
         self.extra_components = extra_components or []
         self.index = 0
         self._component: Optional[ComponentMessage] = None
@@ -75,6 +75,8 @@ class Selectable(metaclass=ABCMeta):
             await inter_or_comp.edit(embed=self.get_embed(),
                                      components=self.get_components())
         else:
+            if not self.channel:
+                raise ValueError('Channel cannot be None if inter_or_comp is not supplied')
             self._component = await self.channel.send(embed=self.get_embed(),
                                                       components=self.get_components())
 
