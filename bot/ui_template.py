@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from abc import ABCMeta, abstractmethod
-from typing import List, Optional, Any, Iterable, Union
+from typing import List, Optional, Any, Union, Tuple, TYPE_CHECKING
 from itertools import zip_longest
+from asyncio.futures import Future
 
 from discord.abc import Messageable
 from discord import Message, Embed
@@ -14,7 +17,10 @@ from discord_components import (
 )
 
 from .util import remove_callback, respond_callback
-from rpg import Character, Effect, Skill, Fight
+from rpg import Weapon, Armor, Consumable, Character
+
+if TYPE_CHECKING:
+    from rpg import Skill, Fight, Item
 
 
 # noinspection PyArgumentList
@@ -108,7 +114,7 @@ class SkillSelect(Selectable):
                          f'{player_name}\'s turn, select your skill!',
                          select_button=Button(label='Select', custom_id='skill_selected'))
 
-    async def select_callback(self, _inter: Interaction): await respond_callback(_inter)
+    async def select_callback(self, _inter: Interaction): ...  # await respond_callback(_inter)
 
 
 class TargetSelect(Selectable):
@@ -116,7 +122,7 @@ class TargetSelect(Selectable):
         super().__init__(client, channel, [c.name for c in _fight.lookup], 'Select your target',
                          select_button=Button(label='Select', custom_id='target_selected'))
 
-    async def select_callback(self, _inter: Interaction): await respond_callback(_inter)
+    async def select_callback(self, _inter: Interaction): ...  # await respond_callback(_inter)
 
 
 class FightUI:
@@ -134,6 +140,7 @@ class FightUI:
                    f'{self.get_health_bar(rc) if rc.name else "": >26}\n' \
                    f'{"Effects" if lc.name else "":<10} {"Effects" if rc.name else "":>26}'
             for l_effect, r_effect in zip_longest(lc.effects, rc.effects, fillvalue=None):
+                buf += '\n'
                 l_effect_str = f'{l_effect.name} ({l_effect.duration} Turns)' if l_effect else ''
                 r_effect_str = f'{r_effect.name} ({r_effect.duration} Turns)' if r_effect else ''
                 buf += f'{l_effect_str:<30}{r_effect_str}\n'
@@ -185,3 +192,125 @@ class CombatLog:
 
     async def remove(self):
         await self.message.delete()
+
+
+class Shop(Selectable):
+    def __init__(self, client: DiscordComponents, channel: Messageable,
+                 catalogue: List[Tuple[Item, int]], players: List[Character],
+                 balance: int):
+        super().__init__(client, channel, [x[0].name for x in catalogue],
+                         'Shop Selection')
+        self.catalogue = catalogue
+        self.extra_components = self.get_extra_components()
+        self.players = players
+        self.balance = balance
+        self.exited: Future[bool] = self.client.bot.loop.create_future()
+
+    def get_extra_components(self, disabled: bool = False):
+        return [
+            self.client.add_callback(
+                Button(label='Exit', style=ButtonStyle.red, disabled=disabled),
+                self.on_exit,
+            )
+        ]
+
+    async def on_exit(self, inter: Interaction):
+        await remove_callback(inter)
+        self.exited.set_result(True)
+
+    async def select_callback(self, inter: Interaction):
+        await inter.edit_origin(components=self.get_components())
+        sd = ShopDesc(self.client, self.catalogue[self.index], [player.name for player in self.players])
+        await sd.start(inter)
+        choice = await sd.promise
+
+        if choice != -1:
+            item, price = self.catalogue[self.index]
+            player = self.players[choice]
+            if self.balance >= price:
+                if isinstance(item, Weapon):
+                    if item.name not in (weapon.name for weapon in player.weapons):
+                        player.weapons.append(item)
+                        self.balance -= price
+                elif isinstance(item, Armor):
+                    if item.name not in (armor.name for armor in player.armors):
+                        self.balance -= price
+                        player.armors.append(item)
+                elif isinstance(item, Consumable):
+                    player.consumables.append(item)
+                    self.balance -= price
+
+        await inter.message.edit(embed=self.get_embed(), components=self.get_components())
+
+
+class ShopDesc:
+    def __init__(self, client: DiscordComponents, catalogue_info: Tuple[Item, int], players: List[str]):
+        self.client = client
+        self.catalogue_info = catalogue_info
+        self.players = players
+        self.promise: Future[int] = self.client.bot.loop.create_future()
+
+    def get_components(self):
+        return [
+            [
+                self.client.add_callback(
+                    Button(
+                        label='Buy',
+                        style=ButtonStyle.green,
+                    ),
+                    self.buy,
+                ),
+                self.client.add_callback(
+                    Button(
+                        label='Back',
+                        style=ButtonStyle.red,
+                    ),
+                    self.done,
+                )
+            ]
+        ]
+
+    def get_embed(self) -> Embed:
+        embed = Embed(title='Item inspection screen')
+        embed.set_thumbnail(
+            url='https://cdn.discordapp.com/attachments/839838748413788200/898425885391224832/unknown.png')
+        embed.add_field(name='**__Item name__**', value=self.catalogue_info[0].name)
+        embed.add_field(name='**__Price__**', value=f'{self.catalogue_info[1]} shidcoins')
+        embed.add_field(name='\u200b', value='\u200b')
+        embed.add_field(name='**__Description__**', value=f'*{self.catalogue_info[0].flavor_text}*')
+        return embed
+
+    async def buy(self, inter: Interaction):
+        player_select = SimpleSelect(self.client, None, self.players, 'Selection')
+        await player_select.start(inter)
+        self.promise.set_result(await player_select.selection)
+        await respond_callback(inter)
+
+    async def done(self, inter: Interaction):
+        self.promise.set_result(-1)
+        await respond_callback(inter)
+
+    async def start(self, inter: Interaction):
+        await inter.message.edit(embed=self.get_embed(), components=self.get_components())
+
+
+class SimpleSelect(Selectable):
+    def __init__(self, client: DiscordComponents, channel: Optional[Messageable], options: List[str],
+                 title: str):
+        super().__init__(client, channel, options, title, extra_components=[
+            client.add_callback(
+                Button(
+                    label='Back',
+                    style=ButtonStyle.red,
+                ),
+                self.select_callback,
+            )
+        ])
+        self.selection: Future[int] = self.client.bot.loop.create_future()
+
+    async def select_callback(self, inter: Interaction):
+        await inter.respond(type=6)
+        if inter.custom_id == 'back':
+            self.selection.set_result(self.index)
+            await remove_callback(inter)
+        self.selection.set_result(self.index)
