@@ -3,6 +3,7 @@ from typing import List, Iterator, Callable, Tuple, Optional
 from asyncio.futures import Future
 
 import discord
+import asyncio
 from discord.abc import Messageable
 from discord_components import (
     DiscordComponents,
@@ -10,6 +11,7 @@ from discord_components import (
     ButtonStyle,
     Interaction,
     Component,
+    ComponentMessage,
 )
 
 import rpg
@@ -18,25 +20,10 @@ from .ui_template import (
     TargetSelect,
     SkillSelect,
     FightUI,
-    CombatLog
+    CombatLog,
+    Shop,
 )
 from .util import remove_callback, start_wait
-
-
-class Shop(Selectable):
-    def __init__(self,
-                 client: DiscordComponents,
-                 channel: Messageable,
-                 weapons: Tuple[str, rpg.Weapon],
-                 armors: Tuple[str, rpg.Weapon],
-                 consumables: Tuple[str, rpg.Weapon]):
-        super().__init__(client, channel, [], 'TODO')
-        self.weapons = weapons
-        self.armors = armors
-        self.consumables = consumables
-
-    async def select_callback(self, inter: Interaction):
-        pass
 
 
 class Dialogue:
@@ -127,16 +114,20 @@ class Fight:
                  channel: Messageable,
                  right_channel: Messageable,
                  party_one: List[rpg.Character],
-                 party_two: List[rpg.Character]):
+                 party_two: List[rpg.Character],
+                 shop: Shop):
         self.client = client
         self.channel = channel
         self.right_channel = right_channel
         self.party_one = party_one
         self.party_two = party_two
-        self.original_message = None
+        self.original_message: Optional[ComponentMessage] = None
+        self.shop_opened = False
+        self.inventory_opened = False
 
         self.inventory = Inventory(client, channel, party_one, self.update)
-        self.fut: Optional[Future] = None
+        self.shop = shop
+        self.exited: Future[bool] = self.client.bot.loop.create_future()
 
     def get_embed(self):
         embed = discord.Embed(title='It\'s showtime!')
@@ -168,8 +159,11 @@ class Fight:
                        custom_id='sub_continue', disabled=proceed_disabled),
                 self.begin_fight,
             ),
-            Button(style=ButtonStyle.green, label='Shops',
-                   disabled=shop_disabled),
+            self.client.add_callback(
+                Button(style=ButtonStyle.green, label='Shops',
+                       disabled=shop_disabled),
+                self.open_shop,
+            ),
             self.client.add_callback(
                 Button(style=ButtonStyle.green, label='Inventory',
                        disabled=inventory_disabled),
@@ -177,9 +171,40 @@ class Fight:
             )
         ]]
 
+    async def update_component_state(self, inter: Interaction, respond: bool = True):
+        if respond:
+            await inter.edit_origin(
+                components=self.get_component(self.inventory_opened or self.shop_opened, self.shop_opened,
+                                              self.inventory_opened))
+            return
+        await inter.message.edit(
+            components=self.get_component(self.inventory_opened or self.shop_opened, self.shop_opened,
+                                          self.inventory_opened))
+
+    def get_new_future(self):
+        return self.client.bot.loop.create_future()
+
     async def open_inventory(self, inter: Interaction):
-        await inter.edit_origin(embed=self.get_embed())
+        self.inventory_opened = True
+        await self.update_component_state(inter)
+
         await self.inventory.start()
+        await self.inventory.exited
+        self.inventory.exited = self.get_new_future()
+
+        self.inventory_opened = False
+        await self.update_component_state(inter, False)
+
+    async def open_shop(self, inter: Interaction):
+        self.shop_opened = True
+        await self.update_component_state(inter)
+
+        await self.shop.start()
+        await self.shop.exited
+        self.shop.exited = self.get_new_future()
+
+        self.shop_opened = False
+        await self.update_component_state(inter, False)
 
     async def begin_fight(self, inter: Interaction):
         await inter.edit_origin(components=self.get_component(True, True, True))
@@ -217,11 +242,14 @@ class Fight:
                 left_component = component
             else:
                 right_component = component
+            await asyncio.sleep(0)
             await start_wait(self.client.bot, t, check=lambda _inter: _inter.custom_id == 'target_selected',
                              start_args=(component,))
 
             skill = current.get_skill(s.options[s.index])
             combat_log.add_log(skill.use_text(current, fight.lookup[t.index]))
+            while not fight.effect_queue.empty():
+                combat_log.add_log(fight.effect_queue.get_nowait())
             current.use_skill(s.options[s.index], fight.lookup[t.index])
             await fight_ui.update()
             await combat_log.update()
@@ -234,19 +262,20 @@ class Fight:
         await combat_log.remove()
         if fight.winner() == 'right':
             await inter.message.delete()
-            self.fut.set_result('done')
+
+            if self.exited.done():
+                self.exited = self.get_new_future()
+            self.exited.set_result(True)
         else:
             await inter.message.edit(components=self.get_component())
 
     async def update(self):
         await self.original_message.edit(embed=self.get_embed())
 
-    async def start(self, fut: Future):
-        self.fut = fut
+    async def start(self):
         # noinspection PyArgumentList
         self.original_message = await self.channel.send(embed=self.get_embed(),
                                                         components=self.get_component())
-
         await self.client.bot.wait_for('button_click', check=lambda inter: inter.custom_id == 'sub_continue')
 
 
@@ -256,15 +285,17 @@ class Inventory(Selectable):
                  channel: Messageable,
                  players: List[rpg.Character],
                  update_fn: Callable):
-        super().__init__(client, channel, [player.name for player in players], 'Whose inventory do you want to view?',
+        super().__init__(client, channel, [player.name for player in players],
+                         'Whose inventory do you want to view?',
                          select_button=Button(label='View', custom_id='view'),
                          extra_components=[client.add_callback(Button(style=ButtonStyle.red, label='Back'),
-                                                               remove_callback)])
+                                                               self.on_exit)])
         self.client = client
         self.channel = channel
         self.players = players
         self.last_chosen = 'weapons'
         self.update_fn = update_fn
+        self.exited: Future[bool] = self.client.bot.loop.create_future()
 
     async def select_callback(self, inter: Interaction):
         if inter.custom_id not in {'weapons', 'armors', 'consumables'}:
@@ -285,6 +316,10 @@ class Inventory(Selectable):
     async def view_selection(self, inter: Interaction):
         await inter.edit_origin(embed=Selectable.get_embed(self),
                                 components=Selectable.get_components(self))
+
+    async def on_exit(self, inter: Interaction):
+        self.exited.set_result(True)
+        await remove_callback(inter)
 
     async def equip_callback(self, inter: Interaction):
         if self.last_chosen == 'consumables':
