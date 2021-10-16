@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from typing import Union, Iterable, TYPE_CHECKING
 
+from .effects import Poison
 if TYPE_CHECKING:
     from .characters import Character
 
@@ -38,9 +39,20 @@ class Heal(Skill):
     def use(self, user: Character, target: Character):
         target.effective_stats.hp = min(target.stats.hp,
                                         target.effective_stats.hp + (
-                                                    target.stats.hp * 0.4) * user.effective_stats.int / 10)
+                                                target.stats.hp * 0.4) * user.effective_stats.int / 10)
 
     def use_text(self, user: Character, target: Character) -> str:
         return f'**{user.name}** used **{user.equipped_weapon.name}** did a heal and recovered' \
                f' `{round(min(target.stats.hp - target.effective_stats.hp, (target.stats.hp * 0.4) * user.effective_stats.int / 10), 2)}` hp ' \
                f'for **{target.name}**'
+
+
+class Spit(Skill):
+    def __init__(self):
+        super().__init__('Spit')
+
+    def use(self, user: Character, target: Character):
+        target.effects.append(Poison('Canser', 'Corrode', 5))
+
+    def use_text(self, user: Character, target: Character) -> str:
+        return f'**{user.name}** spat on **{target.name}** and gave **{target.name}** `canser`'
