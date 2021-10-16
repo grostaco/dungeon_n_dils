@@ -3,7 +3,9 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from typing import Union, Iterable, TYPE_CHECKING
 
-from .effects import Poison
+from .common import Stats
+from .effects import Poison, Paralysis, StatsMod
+
 if TYPE_CHECKING:
     from .characters import Character
 
@@ -25,6 +27,7 @@ class NormalAttack(Skill):
         super().__init__('Normal Attack')
 
     def use(self, user: Character, target: Character):
+        print(user.effective_stats.atk)
         target.effective_stats.hp -= min(target.effective_stats.hp, 10 + user.effective_stats.atk * 0.4)
 
     def use_text(self, user: Character, target: Character) -> str:
@@ -56,3 +59,30 @@ class Spit(Skill):
 
     def use_text(self, user: Character, target: Character) -> str:
         return f'**{user.name}** spat on **{target.name}** and gave **{target.name}** `canser`'
+
+
+class PabloSerenade(Skill):
+    def __init__(self):
+        super().__init__('Pablo\'s Serenade')
+
+    def use(self, user: Character, target: Character):
+        target.effects.append(StatsMod('Wet panties', '', 3,
+                                       lambda character: Stats(character.effective_stats.hp,
+                                                               character.effective_stats.defense,
+                                                               character.effective_stats.atk * 0.40,
+                                                               character.effective_stats.int),
+                                       lambda character: f'{character.name}\'s panties is too wet to attack properly'))
+
+    def use_text(self, user: Character, target: Character) -> str:
+        return f'**{user.name}** sang for **{target.name}** and made **{target.name}** wet'
+
+
+class PPTouch(Skill):
+    def __init__(self):
+        super().__init__('PP Touch')
+
+    def use(self, user: Character, target: Character):
+        target.effects.append(Paralysis('PP hard', 'Placeholder', 1))
+
+    def use_text(self, user: Character, target: Character) -> str:
+        return f'**{target.name}** dik\'s was too hard and couldn\'t move'
