@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List, Tuple, Union, Optional, Iterable, Literal
 from itertools import cycle, chain
+import queue
 
 from .characters import Character
 from operator import attrgetter
@@ -50,8 +51,8 @@ class Dialogue:
 
 
 class Choice:
-    def __init__(self):
-        self.dialogues: List[Tuple[str, Dialogue]] = []
+    def __init__(self, dialogues: Optional[List[Tuple[str, Dialogue]]] = None):
+        self.dialogues: List[Tuple[str, Dialogue]] = dialogues or []
 
     def __iter__(self):
         return iter(self.dialogues)
@@ -80,9 +81,11 @@ class Fight:
         self.name_lookup = {character.name: character for character in self.lookup}
         self.turns = cycle(self.lookup)
         self.current: Optional[Character] = None
+        self.effect_queue = queue.Queue()
 
     def next_turn(self) -> Optional[Character]:
-        if not any(map(attrgetter('effective_stats.hp'), self.left)) or not any(map(attrgetter('effective_stats.hp'), self.right)):
+        if not any(map(attrgetter('effective_stats.hp'), self.left)) or not any(
+                map(attrgetter('effective_stats.hp'), self.right)):
             return None
 
         # health being negative is intentional
@@ -114,7 +117,8 @@ class Fight:
 
         skill.use(self.current, targets)
 
-    @staticmethod
-    def update_effect(character: Character):
+    def update_effect(self, character: Character):
         for effect in character.effects:
-            effect.modify(character)
+            e = effect.modify(character)
+            if e:
+                self.effect_queue.put_nowait(e)
