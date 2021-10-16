@@ -33,7 +33,8 @@ class Selectable(metaclass=ABCMeta):
                  up_button: Optional[Button] = None,
                  down_button: Optional[Button] = None,
                  select_button: Optional[Button] = None,
-                 extra_components: List[Component] = None):
+                 extra_components: List[Component] = None,
+                 color: Optional[int] = 0):
         self.client = client
         self.channel = channel
         self.options = options
@@ -44,6 +45,7 @@ class Selectable(metaclass=ABCMeta):
         self.extra_components = extra_components or []
         self.index = 0
         self._component: Optional[ComponentMessage] = None
+        self.color = color
 
     def get_components(self):
         return [
@@ -71,7 +73,7 @@ class Selectable(metaclass=ABCMeta):
             desc += f'{option}\n'
 
         return Embed(title=self.select_title,
-                     description=desc)
+                     description=desc, color=self.color)
 
     async def start(self, inter_or_comp: Optional[Union[ComponentMessage, Interaction]] = None):
         if isinstance(inter_or_comp, Interaction):
@@ -112,17 +114,35 @@ class SkillSelect(Selectable):
                  player_name: str):
         super().__init__(client, channel, [skill.name for skill in skills],
                          f'{player_name}\'s turn, select your skill!',
-                         select_button=Button(label='Select', custom_id='skill_selected'))
+                         color=0xBC544B)
+        self.exited: Future[bool] = self.create_future()
 
-    async def select_callback(self, _inter: Interaction): ...  # await respond_callback(_inter)
+    def create_future(self):
+        return self.client.bot.loop.create_future()
+
+    async def select_callback(self, inter: Interaction):
+        await respond_callback(inter)
+        if self.exited.done():
+            self.exited = self.create_future()
+
+        self.exited.set_result(True)
 
 
 class TargetSelect(Selectable):
     def __init__(self, client: DiscordComponents, channel: Messageable, _fight: Fight):
         super().__init__(client, channel, [c.name for c in _fight.lookup], 'Select your target',
-                         select_button=Button(label='Select', custom_id='target_selected'))
+                         color=0xFFC9AD)
+        self.exited: Future[bool] = self.create_future()
 
-    async def select_callback(self, _inter: Interaction): ...  # await respond_callback(_inter)
+    def create_future(self):
+        return self.client.bot.loop.create_future()
+
+    async def select_callback(self, inter: Interaction):
+        await respond_callback(inter)
+        if self.exited.done():
+            self.exited = self.create_future()
+
+        self.exited.set_result(True)
 
 
 class FightUI:
@@ -174,7 +194,7 @@ class CombatLog:
         self.message: Optional[Message] = None
 
     def get_embed(self) -> Embed:
-        embed = Embed(title='Combat Log')
+        embed = Embed(title='Combat Log', color=0x63C5DA)
         embed.description = '\n'.join(self.logs)
         return embed
 
