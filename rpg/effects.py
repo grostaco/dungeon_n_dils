@@ -1,39 +1,55 @@
 from abc import ABCMeta, abstractmethod
-from typing import Callable, Optional
+from typing import Optional, Callable
 
-from .characters import Character
-
-"""
-On Effects
-
-Is it [periodic] or [persistent]? If not, how does it [trigger]?
-What does it [do]?
-
-Does it modify the [self] or [meta] of [self]?
-[self] refers to the change of stats
-
-If duration is -1, it is persistent, else it is periodic
-"""
+from .characters import Character, Stats
 
 
 class Effect(metaclass=ABCMeta):
     def __init__(self, effect_name: str, effect_desc: str,
-                 duration: int, trigger: Optional[Callable]):
+                 duration: int):
         self.name = effect_name
         self.desc = effect_desc
         self.duration = duration
-        self.trigger = trigger
 
     @abstractmethod
-    def modify(self, character: Character): ...
+    def modify(self, character: Character) -> Optional[str]: ...
 
 
 # Take 5% off of the character's health pool
 class Poison(Effect):
     def __init__(self, effect_name: str, effect_desc: str, duration: int):
-        super().__init__(effect_name, effect_desc, duration, None)
+        super().__init__(effect_name, effect_desc, duration)
 
-    def modify(self, character: Character):
+    def modify(self, character: Character) -> Optional[str]:
         if self.duration:
             character.effective_stats.hp = max(0, character.effective_stats.hp - character.stats.hp * 0.05)
             self.duration -= 1
+            return f'**{character.name}** took `{character.stats.hp * 0.15}` dmg from **canser**'
+
+
+class Paralysis(Effect):
+    def __init__(self, effect_name: str, effect_desc: str, duration: int):
+        super().__init__(effect_name, effect_desc, duration)
+
+    def modify(self, character: Character) -> Optional[str]:
+        if self.duration:
+            self.duration -= 1
+            return f'**{character.name}** couldn\'t move due to paralysis'
+
+
+class StatsMod(Effect):
+    def __init__(self, effect_name: str, effect_desc: str, duration: int,
+                 modify_func: Callable[[Character], Stats],
+                 modify_text_func: Callable[[Character], str]):
+        super().__init__(effect_name, effect_desc, duration)
+        self.modify_func = modify_func
+        self.modify_text_func = modify_text_func
+
+    def modify(self, character: Character) -> Optional[str]:
+        if self.duration:
+            self.duration -= 1
+            return self.modify_text_func(character)
+
+    def trigger(self, character: Character):
+        return self.modify_func(character)
+
