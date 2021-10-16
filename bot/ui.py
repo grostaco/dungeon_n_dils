@@ -68,7 +68,8 @@ class Dialogue:
         if len(self.dialogue) == 1:
             self.no_skip = False
         dialogue = self.dialogue[self.index]
-        embed = discord.Embed(title=dialogue[0].name, description=dialogue[1])
+        embed = discord.Embed(title=dialogue[0].name, description=dialogue[1],
+                              colour=hash(dialogue[0].name) & 0xFFFFFF)
         await self.channel.send(
             embed=embed, components=self.get_components()
         )
@@ -86,9 +87,11 @@ class Dialogue:
             self.no_skip = False
         dialogue = self.dialogue[self.index]
 
-        embed = discord.Embed(title=dialogue[0].name, description=dialogue[1])
+        embed = discord.Embed(title=dialogue[0].name, description=dialogue[1],
+                              colour=hash(dialogue[0].name) & 0xFFFFFF)
         await inter.edit_origin(
-            embed=embed, components=self.get_components()
+            embed=embed, components=self.get_components(),
+
         )
 
 
@@ -99,7 +102,7 @@ class Choice(Selectable):
                  choice: rpg.Choice,
                  select_title: str = 'You are presented with a choice!'):
         super().__init__(client, channel, [dialogue[0] for dialogue in choice], select_title,
-                         select_button=Button(label='Continue'))
+                         select_button=Button(label='Continue'), color=0xA020F0)
         self.choice = choice
 
     async def select_callback(self, inter: Interaction):
@@ -130,7 +133,7 @@ class Fight:
         self.exited: Future[bool] = self.client.bot.loop.create_future()
 
     def get_embed(self):
-        embed = discord.Embed(title='It\'s showtime!')
+        embed = discord.Embed(title='It\'s showtime!', color=0xEC9706)
         fill_char = '      VS      '
         for p1, p2 in itertools.zip_longest(self.party_one, self.party_two,
                                             fillvalue=rpg.Character('\u200b')):
@@ -219,6 +222,9 @@ class Fight:
 
         while current := fight.next_turn():
 
+            while not fight.effect_queue.empty():
+                combat_log.add_log(fight.effect_queue.get_nowait())
+
             is_left = current in fight.left
             if not is_left and current in fight.right and left_component:
                 await left_component.edit(embed=discord.Embed(title='Currently the opponent\'s turn'),
@@ -228,29 +234,24 @@ class Fight:
                 await right_component.edit(embed=discord.Embed(title='Currently the opponent\'s turn'),
                                            components=[[Button(style=ButtonStyle.gray, disabled=True,
                                                                label='Waiting')]])
-
             channel = self.channel if is_left else self.right_channel
             component = left_component if is_left else right_component
 
             s = SkillSelect(self.client, channel, current.skills, current.name)
             t = TargetSelect(self.client, channel, fight)
 
-            await start_wait(self.client.bot, s, check=lambda _inter: _inter.custom_id == 'skill_selected',
-                             start_args=(component,))
+            await s.start(component)
+            await s.exited
+
             component = component or s.component
             if is_left:
                 left_component = component
             else:
                 right_component = component
-            await asyncio.sleep(0)
-            await start_wait(self.client.bot, t, check=lambda _inter: _inter.custom_id == 'target_selected',
-                             start_args=(component,))
+            await t.start(component)
+            await t.exited
 
-            skill = current.get_skill(s.options[s.index])
-            combat_log.add_log(skill.use_text(current, fight.lookup[t.index]))
-            while not fight.effect_queue.empty():
-                combat_log.add_log(fight.effect_queue.get_nowait())
-            current.use_skill(s.options[s.index], fight.lookup[t.index])
+            combat_log.add_log(fight.turn_action(s.options[s.index], fight.lookup[t.index].name))
             await fight_ui.update()
             await combat_log.update()
 
