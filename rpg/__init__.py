@@ -4,3 +4,4 @@ from .characters import *
 from .skills import *
 from .effects import *
 from .items import *
+from .util import *
