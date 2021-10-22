@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import List, Tuple, Union, Optional, Iterable, Literal, TYPE_CHECKING
+from typing import Union, Iterable, Literal
 from itertools import cycle, chain
 import queue
 
-from .characters import Character
 from operator import attrgetter
 from .util import as_gen
 
@@ -90,16 +89,15 @@ class Fight:
                 map(attrgetter('effective_stats.hp'), self.right)):
             return None
 
-        # health being negative is intentional
-        if self.current:
-            self.update_effect(self.current)
-
         while current := next(turn for turn in self.turns if turn.effective_stats.hp):
             self.current = current
-            if any(isinstance(effect, Paralysis) for effect in current.effects):
+            if any(isinstance(effect, TurnSkip) for effect in current.effects):
                 self.update_effect(self.current)
             else:
                 break
+
+        if self.current:
+            self.update_effect(self.current)
 
         return self.current
 
@@ -127,8 +125,7 @@ class Fight:
         for stat_modifier in stat_modifiers:
             self.current.effective_stats = stat_modifier.trigger(self.current)
 
-        skill.use(self.current, targets)
-        use_text = skill.use_text(self.current, targets)
+        use_text = skill.use(self.current, targets)
         self.current.effective_stats = old_stats
         return use_text
 
