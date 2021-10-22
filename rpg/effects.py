@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Optional, Callable
+from typing import Optional, Callable, List, Tuple
 
 from .characters import Character, Stats
 
@@ -15,26 +15,40 @@ class Effect(metaclass=ABCMeta):
     def modify(self, character: Character) -> Optional[str]: ...
 
 
-# Take 5% off of the character's health pool
-class Poison(Effect):
-    def __init__(self, effect_name: str, effect_desc: str, duration: int):
+class EffectiveStatsMod(Effect):
+    def __init__(self, effect_name: str, effect_desc: str, duration: int,
+                 modify_func: Callable[[Character], str]):
         super().__init__(effect_name, effect_desc, duration)
-
-    def modify(self, character: Character) -> Optional[str]:
-        if self.duration:
-            character.effective_stats.hp = max(0, character.effective_stats.hp - character.stats.hp * 0.05)
-            self.duration -= 1
-            return f'**{character.name}** took `{character.stats.hp * 0.15}` dmg from **canser**'
-
-
-class Paralysis(Effect):
-    def __init__(self, effect_name: str, effect_desc: str, duration: int):
-        super().__init__(effect_name, effect_desc, duration)
+        self.modify_func = modify_func
 
     def modify(self, character: Character) -> Optional[str]:
         if self.duration:
             self.duration -= 1
-            return f'**{character.name}** couldn\'t move due to paralysis'
+            return self.modify_func(character)
+
+
+class DummyEffect(Effect):
+    def __init__(self, effect_name: str, effect_desc: str, duration: int,
+                 text_func: Callable[[Character], str]):
+        super().__init__(effect_name, effect_desc, duration)
+        self.text_func = text_func
+
+    def modify(self, character: Character) -> Optional[str]:
+        if self.duration:
+            self.duration -= 1
+            return self.text_func(character)
+
+
+class TurnSkip(Effect):
+    def __init__(self, effect_name: str, effect_desc: str, duration: int,
+                 text_func: Callable[[Character], str]):
+        super().__init__(effect_name, effect_desc, duration)
+        self.text_func = text_func
+
+    def modify(self, character: Character) -> Optional[str]:
+        if self.duration:
+            self.duration -= 1
+            return self.text_func(character)
 
 
 class StatsMod(Effect):
@@ -53,3 +67,21 @@ class StatsMod(Effect):
     def trigger(self, character: Character):
         return self.modify_func(character)
 
+
+class SkillReplaceEffect(Effect):
+    def __init__(self, effect_name: str, effect_desc: str, duration: int,
+                 skill):
+        super().__init__(effect_name, effect_desc, duration)
+        self.cached_skills: Optional[List[Skill]] = None
+        self.skill = skill
+
+    def modify(self, character: Character) -> Optional[str]:
+        if self.cached_skills is None:
+            self.cached_skills = character.skills
+            character.skills = [self.skill] * len(self.cached_skills)
+
+        if self.duration:
+            self.duration -= 1
+            if self.duration == 0:
+                character.skills = self.cached_skills
+            return
