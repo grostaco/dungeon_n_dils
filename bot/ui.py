@@ -3,7 +3,6 @@ from typing import List, Iterator, Callable, Tuple, Optional
 from asyncio.futures import Future
 
 import discord
-import asyncio
 from discord.abc import Messageable
 from discord_components import (
     DiscordComponents,
@@ -221,9 +220,11 @@ class Fight:
         await combat_log.send()
 
         while current := fight.next_turn():
-
             while not fight.effect_queue.empty():
                 combat_log.add_log(fight.effect_queue.get_nowait())
+
+            await fight_ui.update()
+            await combat_log.update()
 
             is_left = current in fight.left
             if not is_left and current in fight.right and left_component:
