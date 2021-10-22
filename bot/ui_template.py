@@ -163,7 +163,7 @@ class FightUI:
                 buf += '\n'
                 l_effect_str = f'{l_effect.name} ({l_effect.duration} Turns)' if l_effect else ''
                 r_effect_str = f'{r_effect.name} ({r_effect.duration} Turns)' if r_effect else ''
-                buf += f'{l_effect_str:<30}{r_effect_str}\n'
+                buf += f'{l_effect_str:<30}{r_effect_str}'
             buf += '\n\n'
         buf += '```'
         return buf
@@ -196,6 +196,9 @@ class CombatLog:
     def get_embed(self) -> Embed:
         embed = Embed(title='Combat Log', color=0x63C5DA)
         embed.description = '\n'.join(self.logs)
+        if len(embed.description) >= 4096:
+            self.logs = ['---------- Truncated ----------']
+            embed.description = '\n'.join(self.logs)
         return embed
 
     async def send(self):
