@@ -253,9 +253,6 @@ class Fight:
             await t.exited
 
             combat_log.add_log(fight.turn_action(s.options[s.index], fight.lookup[t.index].name))
-            await fight_ui.update()
-            await combat_log.update()
-
         if left_component:
             await left_component.delete()
         if right_component:
