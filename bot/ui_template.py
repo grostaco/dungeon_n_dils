@@ -243,7 +243,7 @@ class Shop(Selectable):
 
     async def select_callback(self, inter: Interaction):
         await inter.edit_origin(components=self.get_components())
-        sd = ShopDesc(self.client, self.catalogue[self.index], [player.name for player in self.players])
+        sd = ShopDesc(self.client, self.catalogue[self.index], [player.name for player in self.players], self.balance)
         await sd.start(inter)
         choice = await sd.promise
 
@@ -267,10 +267,12 @@ class Shop(Selectable):
 
 
 class ShopDesc:
-    def __init__(self, client: DiscordComponents, catalogue_info: Tuple[Item, int], players: List[str]):
+    def __init__(self, client: DiscordComponents, catalogue_info: Tuple[Item, int], players: List[str],
+                 balance: int):
         self.client = client
         self.catalogue_info = catalogue_info
         self.players = players
+        self.balance = balance
         self.promise: Future[int] = self.client.bot.loop.create_future()
 
     def get_components(self):
@@ -299,7 +301,7 @@ class ShopDesc:
             url='https://cdn.discordapp.com/attachments/839838748413788200/898425885391224832/unknown.png')
         embed.add_field(name='**__Item name__**', value=self.catalogue_info[0].name)
         embed.add_field(name='**__Price__**', value=f'{self.catalogue_info[1]} shidcoins')
-        embed.add_field(name='\u200b', value='\u200b')
+        embed.add_field(name='**__Current Balance__**', value=f'{self.balance} shidcoins')
         embed.add_field(name='**__Description__**', value=f'*{self.catalogue_info[0].flavor_text}*')
         return embed
 
